@@ -6,6 +6,8 @@ Welcome to the Email Example Zapp. This README is a basic guide to getting start
 
 Since the Smart Contract used in this application uses `@openzeppelin/contracts` you must install the dependenceis first before you deploy to the site to the network.
 
-1. Run `npm i`
+```
+npm i
+```
 
-You can now deploy the site to the network using the `point-deploy` executable. For details on deploying to the network see this [README](../../deployspace/README.md)
+Start your local Point Node and deploy the Zapp by following the instructions [here](https://pointnetwork.github.io/docs/build-run-dev-node-and-services).
