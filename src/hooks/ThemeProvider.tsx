@@ -8,7 +8,7 @@ export const ThemeContext = React.createContext<ThemeContext>({} as ThemeContext
 
 const THEME_STORAGE_KEY = 'theme';
 
-export const ThemeProvider: React.FC = ({ children }) => {
+export const ThemeProvider: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const storedTheme = (localStorage.getItem(THEME_STORAGE_KEY) as Theme | undefined) || 'light';
   const [theme, setTheme] = useState<Theme>(storedTheme);
   const toggleTheme = () => {
