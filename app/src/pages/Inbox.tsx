@@ -32,6 +32,8 @@ const Inbox: React.FC<{}> = () => {
 
     emails = await Promise.all(emails.map(EmailMapper));
 
+    debugger;
+
     return emails.sort(
       ({ createdAt: ca1 }: { createdAt: number }, { createdAt: ca2 }: { createdAt: number }) =>
         ca2 - ca1

@@ -74,7 +74,7 @@ const Sidebar: React.FC<{ isOpen: boolean; openSidebar: Function }> = (props) =>
 
   const menus = [
     { title: 'Inbox', icon: <InboxInIconSolid />, url: '/' },
-    // { title: 'Sent', icon: <MailIcon />, url: '/sent' },
+    { title: 'Sent', icon: <MailIcon />, url: '/sent' },
     // { title: 'Important', icon: <ExclamationCircleIcon />, url: '/important' },
     // { title: 'Drafts 30', icon: <PencilAltIcon />, url: '/drafts' },
     // { title: 'Trash', icon: <TrashIcon />, url: '/trash' },

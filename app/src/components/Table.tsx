@@ -11,28 +11,10 @@ import * as ContractService from '@services/ContractService';
 type Props = {
   email: Email;
   onChecked?: MouseEventHandler<HTMLButtonElement>;
-  onMarkedAsImportant?: MouseEventHandler<HTMLButtonElement>;
 };
 
 const InboxRow: React.FC<Props> = (props) => {
-  const { email, onChecked, onMarkedAsImportant } = props;
-  const [marking, setMarking] = useState<Boolean>(false);
-
-  function onMarkedAsImportantHandler() {
-    setMarking(true);
-    ContractService.sendContract({
-      contract: 'PointEmail',
-      method: 'markAsImportant',
-      params: [email.encryptedMessageId],
-    })
-      .then(() => {
-        setMarking(false);
-      })
-      .catch((error) => {
-        console.error(error);
-        setMarking(false);
-      });
-  }
+  const { email, onChecked } = props;
 
   return (
     <tr className="text-gray-700 dark:text-gray-400">
@@ -45,7 +27,7 @@ const InboxRow: React.FC<Props> = (props) => {
             {email.checked && <CheckIcon className="w-5 h-5" />}
           </button>
         )}
-        {onMarkedAsImportant && (
+        {false && (
           <button className="border-1 w-10 h-10 text-sm p-2 text-gray-400">
             {email.important ? (
               <StarIcon className="w-5 h-5" />

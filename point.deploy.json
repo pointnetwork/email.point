@@ -4,5 +4,7 @@
   "keyvalue": {},
   "contracts": [
     "PointEmail"
-  ]
+  ],
+  "upgradable": true,
+  "rootDir": "app/public"
 }
