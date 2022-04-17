@@ -25,6 +25,7 @@ type Email = {
   subject?: string;
   message?: string;
   encryptedMessageId: string;
+  encryptedSymmetricObj: string;
   createdAt: number;
   checked?: boolean;
   important?: boolean;

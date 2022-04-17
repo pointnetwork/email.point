@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { Contract } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { run, ethers } from 'hardhat';
+import { ethers } from 'hardhat';
 
 const { utils } = ethers;
 

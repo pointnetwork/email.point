@@ -2,21 +2,9 @@ import * as IdentityService from '@services/IdentityService';
 import * as StorageService from '@services/StorageService';
 import * as WalletService from '@services/WalletService';
 
-export default async function EmailMapper(inputData: EmailInputData): Promise<any> {
-  const [id, from, to, createdAt, encryptedMessageId, encryptedSymmetricObj, deleted, important] =
+export default async function EmailMapper(inputData: EmailInputData): Promise<Email> {
+  const [id, from, to, createdAt, encryptedMessageId, encryptedSymmetricObj, important, deleted] =
     inputData;
-
-  console.log(inputData);
-  console.log({
-    id,
-    from,
-    to,
-    encryptedMessageId,
-    encryptedSymmetricObj,
-    createdAt,
-    deleted,
-    important,
-  });
 
   const [fromIdentity, toIdentity, encryptedData] = await Promise.all([
     IdentityService.ownerToIdentity(from),

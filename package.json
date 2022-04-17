@@ -16,6 +16,7 @@
   "dependencies": {
     "@openzeppelin/contracts": "^4.5.0",
     "@openzeppelin/contracts-upgradeable": "^4.5.2",
+    "@openzeppelin/hardhat-upgrades": "^1.17.0",
     "hardhat": "^2.6.4",
     "hardhat-watcher": "^2.1.1",
     "ts-node": "^10.2.1",
