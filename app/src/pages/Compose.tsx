@@ -1,20 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 
 import { MailIcon, UserIcon } from '@heroicons/react/outline';
 import { UploadIcon } from '@heroicons/react/solid';
 
 import Spinner from '@components/Spinner';
 
+import { getEmailData } from '@services/EmailService';
 import * as ContractService from '@services/ContractService';
 import * as IdentityService from '@services/IdentityService';
 import * as StorageService from '@services/StorageService';
 import * as WalletService from '@services/WalletService';
 
-import { actions as uiActions, constants as uiConstants } from '@store/modules/ui';
+import { actions as uiActions } from '@store/modules/ui';
 import { selectors as identitySelectors } from '@store/modules/identity';
 
 import CONSTANTS from '../constants';
+import dayjs from 'dayjs';
 
 enum ERRORS {
   INVALID_RECIPIENT,
@@ -24,9 +27,12 @@ const Compose: React.FC<{}> = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const identity = useSelector(identitySelectors.getIdentity);
   const publicKey = useSelector(identitySelectors.getPublicKey);
-  const walletAddress = useSelector(identitySelectors.getWalletAddress);
 
   const dispatch = useDispatch();
+
+  const messageInput = useRef<HTMLTextAreaElement | null>(null);
+
+  const [searchParams] = useSearchParams();
 
   const [toIdentity, setToIdentity] = useState<string>('');
   const [subject, setSubject] = useState<string>('');
@@ -50,10 +56,45 @@ const Compose: React.FC<{}> = () => {
     setMessage('');
   }
 
-  useEffect(() => {
-    if (identity) {
-      setLoading(false);
+  async function setReplyEmailData(replyToMessageId: string) {
+    try {
+      const replyToEmail = await getEmailData(replyToMessageId);
+      setToIdentity(replyToEmail.fromIdentity!);
+      setSubject(`RE: ${replyToEmail.subject!}`);
+      setMessage(
+        `\n\n| On ${dayjs(replyToEmail.createdAt).format('MMMM DD, YYYY hh:mm')} <@${
+          replyToEmail.fromIdentity
+        }> wrote:\n| ${replyToEmail.message!.split('\n').join('\n| ')}\n`
+      );
+      setTimeout(() => {
+        messageInput.current!.focus();
+        messageInput.current!.setSelectionRange(0, 0);
+      }, 1);
+    } catch (error) {
+      console.error(error);
+      uiActions.showErrorNotification({
+        message: 'Something went wrong',
+      });
     }
+  }
+
+  useEffect(() => {
+    if (!identity) {
+      return;
+    }
+    const replyTo = searchParams.get('replyTo');
+    if (!replyTo) {
+      setLoading(false);
+      return;
+    }
+    setReplyEmailData(replyTo)
+      .then(() => {
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error(error);
+        setLoading(false);
+      });
   }, [identity]);
 
   function onSendHandler(event: React.FormEvent<HTMLFormElement>) {
@@ -62,8 +103,7 @@ const Compose: React.FC<{}> = () => {
     send()
       .then(() => {
         dispatch(
-          uiActions.showNotification({
-            status: uiConstants.NotifactionStatuses.SUCCESS,
+          uiActions.showSuccessNotification({
             message: 'Email sent successfully.',
           })
         );
@@ -77,8 +117,7 @@ const Compose: React.FC<{}> = () => {
           message = 'Invalid Recipient';
         }
         dispatch(
-          uiActions.showNotification({
-            status: uiConstants.NotifactionStatuses.ERROR,
+          uiActions.showErrorNotification({
             message,
           })
         );
@@ -224,6 +263,7 @@ const Compose: React.FC<{}> = () => {
           <textarea
             disabled={!!loading}
             required={true}
+            ref={messageInput}
             className="
               block 
               w-full 
@@ -240,6 +280,7 @@ const Compose: React.FC<{}> = () => {
               focus:outline-none 
               focus:shadow-outline-green 
               dark:focus:shadow-outline-gray
+              whitespace-pre-line
             "
             rows={10}
             placeholder="Email message."
