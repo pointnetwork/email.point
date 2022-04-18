@@ -61,7 +61,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         uint256 timestamp
     );
 
-    modifier onlySenderOrReceiver(bytes32 _encryptedMessageId) {
+    modifier onlySenderOrRecipient(bytes32 _encryptedMessageId) {
         require(
             encryptedMessageIdToEmail[_encryptedMessageId].from == msg.sender ||
                 encryptedMessageIdToEmail[_encryptedMessageId].to == msg.sender,
@@ -202,19 +202,17 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     function deleteMessage(bytes32 _encryptedMessageId, bool _deleted)
         external
-        onlySenderOrReceiver(_encryptedMessageId)
+        onlySenderOrRecipient(_encryptedMessageId)
     {
         
-        emailUserMetadata[encryptedMessageIdToEmail[_encryptedMessageId].id][msg.sender].deleted = _deleted;
-
-        
+        emailUserMetadata[encryptedMessageIdToEmail[_encryptedMessageId].id][msg.sender].deleted = _deleted; 
 
         emit EmailDeleted(msg.sender, _encryptedMessageId, block.timestamp);
     }
 
     function markAsImportant(bytes32 _encryptedMessageId, bool _important)
         external
-        onlySenderOrReceiver(_encryptedMessageId)
+        onlySenderOrRecipient(_encryptedMessageId)
     {
         emailUserMetadata[encryptedMessageIdToEmail[_encryptedMessageId].id][msg.sender].important = _important;
 

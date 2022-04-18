@@ -103,7 +103,7 @@ const Compose: React.FC<{}> = () => {
 
   /*
     the email must be encrypted twice
-    1. receiver public key
+    1. recipient public key
     2. sender private key
   */
   async function send() {
