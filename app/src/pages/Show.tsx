@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import dayjs from 'dayjs';
+import { ReplyIcon } from '@heroicons/react/solid';
 
-import * as ContractService from '@services/ContractService';
-
-import EmailMapper from '@mappers/Email';
+import { getEmailData } from '@services/EmailService';
 
 import { actions as uiActions } from '@store/modules/ui';
 
@@ -20,18 +19,6 @@ const Show: React.FC<{}> = () => {
   const messageId = searchParams.get('id');
 
   const dispatch = useDispatch();
-
-  async function getEmailData(messageId: string) {
-    const rawEmail: EmailInputData = await ContractService.callContract({
-      contract: 'PointEmail',
-      method: 'getMessageById',
-      params: [messageId],
-    });
-
-    const email = await EmailMapper(rawEmail);
-    console.log(email);
-    return email;
-  }
 
   useEffect(() => {
     if (!messageId) {
@@ -70,27 +57,100 @@ const Show: React.FC<{}> = () => {
           <p className="font-bold">#{messageId}</p>
         </div>
       ) : (
-        <div className="container px-6 mx-auto grid">
-          <h2 className="my-3 text-gray-700 dark:text-gray-200">
-            <div className="text-2xl font-semibold mb-5">
-              Message from @{emailData.fromIdentity}
-            </div>
-            <div className="mb-5">Message Id: @{emailData.encryptedMessageId}</div>
-            <div className="mb-5">Time: {dayjs(emailData.createdAt).format('MMMM DD, hh:mm')}</div>
-            {emailData?.subject && <div className="mb-5">Subject: {emailData.subject}</div>}
-          </h2>
+        <div className="container w-full mx-auto md:px-5 grid">
           <div
             className="
-              px-10
-              py-10
-              mb-8
+              w-full
+              px-5
+              py-5
+              md:px-10
+              md:py-10
+              mb-4
               bg-white
               rounded-lg
               shadow-md
               dark:bg-gray-800
             "
           >
-            {emailData.message}
+            <h2 className="text-gray-700 dark:text-gray-200 text-lg font-semibold mb-5">
+              {emailData.subject}
+            </h2>
+            <div
+              className="
+                mb-2
+                flex
+                flex-col
+                justify-start
+                md:flex-row
+                md:justify-between
+                md:items-center
+              "
+            >
+              <div className="text-sm">
+                <span className="font-bold">@{emailData.fromIdentity}</span>
+                <span
+                  className="
+                    text-gray-600
+                    ml-2
+                    text-sm
+                  "
+                >
+                  {`<${emailData.from}>`}
+                </span>
+              </div>
+              <div className="text-gray-600 text-sm mt-2 md:mt-0">
+                {dayjs(emailData.createdAt).format('MMMM DD, hh:mm')}
+              </div>
+            </div>
+            <div
+              className="
+                text-sm
+                mb-2
+                hidden 
+                md:block
+              "
+            >
+              <span className="font-bold">Id:</span>
+              <span
+                className="
+                  text-gray-600
+                  ml-1
+                  
+                "
+              >
+                {emailData.encryptedMessageId}
+              </span>
+            </div>
+            <div className="mt-5 whitespace-pre-line">{emailData.message.split('| On')}</div>
+          </div>
+          <div
+            className="
+              mb-4
+              px-2
+            "
+          >
+            <Link
+              className="
+                flex
+                flex-row
+                rounded
+                items-center
+                border-2
+                border-green-600
+                bg-green-500
+                text-white
+                justify-center
+                p-2
+                px-10
+                mt-1
+                mb-5
+                w-40
+              "
+              to={`/compose?replyTo=${emailData.encryptedMessageId}`}
+            >
+              <ReplyIcon className="w-5 h-5 mr-2" />
+              <span>Reply</span>
+            </Link>
           </div>
         </div>
       )}
