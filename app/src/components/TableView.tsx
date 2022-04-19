@@ -20,9 +20,9 @@ type Props = {
 const TableView: React.FC<Props> = (props) => {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [deleting, setDeleting] = useState<boolean>(false);
 
   const walletAddress = useSelector(identitySelectors.getWalletAddress);
-  const identity = useSelector(identitySelectors.getIdentity);
 
   const dispatch = useDispatch();
 
@@ -68,20 +68,37 @@ const TableView: React.FC<Props> = (props) => {
   }
 
   async function deleteMessages() {
-    const deleteMessagesPromises: Promise<void>[] = [];
-    emails.forEach((email) => {
-      if (email.checked) {
-        deleteMessagesPromises.push(
-          ContractService.sendContract({
-            contract: 'PointEmail',
-            method: 'deleteMessage',
-            params: [email.encryptedMessageId, !email.deleted],
-          })
-        );
-      }
-    });
-    await Promise.all(deleteMessagesPromises);
-    refreshTable();
+    if (deleting) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      const deleteMessagesPromises: Promise<void>[] = [];
+      emails.forEach((email) => {
+        if (email.checked) {
+          deleteMessagesPromises.push(
+            ContractService.sendContract({
+              contract: 'PointEmail',
+              method: 'deleteMessage',
+              params: [email.encryptedMessageId, !email.deleted],
+            })
+          );
+        }
+      });
+      await Promise.all(deleteMessagesPromises);
+      refreshTable();
+      setDeleting(false);
+    } catch (error) {
+      console.error(error);
+      setDeleting(false);
+      refreshTable();
+      dispatch(
+        uiActions.showErrorNotification({
+          message: 'Something went wrong.',
+        })
+      );
+    }
   }
 
   function refreshTable() {
@@ -153,7 +170,7 @@ const TableView: React.FC<Props> = (props) => {
                       dark:bg-gray-800
                     "
                     >
-                      <th className="px-4 py-2 flex flex-row items-center">
+                      <th className="px-4 py-2 flex w-32 flex-row items-center">
                         <button
                           onClick={checkAll}
                           className={`
@@ -165,10 +182,13 @@ const TableView: React.FC<Props> = (props) => {
                           text-xs
                           text-gray-400
                           mr-2
-                          ${!allChecked && 'p-1'}
                         `}
                         >
-                          {allChecked && <CheckIcon className="w-5 h-5" />}
+                          {allChecked ? (
+                            <CheckIcon className="w-5 h-5" />
+                          ) : (
+                            <div className="w-5 h-5"></div>
+                          )}
                         </button>
                         {someChecked && (
                           <button
@@ -179,6 +199,7 @@ const TableView: React.FC<Props> = (props) => {
                             <BanIcon className="w-5 h-5" />
                           </button>
                         )}
+                        {deleting && <Spinner className="w-5 h-5" />}
                         <button
                           className="text-xs m-2 text-gray-500"
                           onClick={refreshTable}
