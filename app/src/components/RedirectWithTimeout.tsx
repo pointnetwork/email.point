@@ -6,6 +6,7 @@ const RedirectWithTimeout: React.FC<{
   to: string;
   timeout?: number;
   message?: string;
+  children?: React.ReactNode;
 }> = (props) => {
   const [redirect, setRedirect] = useState<boolean>(false);
   const { to, timeout = 1000 * 5, message = 'Redirecting' } = props;
@@ -15,7 +16,8 @@ const RedirectWithTimeout: React.FC<{
       setRedirect(true);
     }, timeout);
     return () => clearTimeout(t);
-  }, []);
+  }, [timeout]);
+
   return (
     <>
       {redirect ? (

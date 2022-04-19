@@ -1,30 +1,30 @@
 module.exports = {
   env: {
-    browser: true,
+    browser: false,
     es2021: true,
+    mocha: true,
     node: true,
   },
   extends: [
-    'eslint:recommended',
-    'plugin:react/recommended',
-    'plugin:@typescript-eslint/recommended',
-    'plugin:prettier/recommended',
+    "standard",
+    "plugin:prettier/recommended",
+    "plugin:node/recommended",
   ],
-  parser: '@typescript-eslint/parser',
   parserOptions: {
-    ecmaFeatures: {
-      jsx: true,
+    ecmaVersion: 12,
+  },
+  overrides: [
+    {
+      files: ["hardhat.config.js"],
+      globals: { task: true },
     },
-    ecmaVersion: 13,
-    sourceType: 'module',
-  },
-  plugins: ['react', '@typescript-eslint', 'react-hooks'],
-  rules: {
-    indent: ['error', 2],
-    'linebreak-style': ['error', 'unix'],
-    quotes: ['error', 'single'],
-    semi: ['error', 'always'],
-    'react-hooks/rules-of-hooks': 'error', // Checks rules of Hooks
-    'react-hooks/exhaustive-deps': 'warn', // Checks effect dependencies
-  },
+    {
+      files: ["scripts/**"],
+      rules: { "no-process-exit": "off" },
+    },
+    {
+      files: ["hardhat.config.js", "scripts/**", "test/**"],
+      rules: { "node/no-unpublished-require": "off" },
+    },
+  ],
 };

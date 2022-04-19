@@ -23,7 +23,8 @@ const Item: React.FC<{ item: Item }> = (props) => {
   return (
     <li className="relative px-6 py-3">
       <NavLink
-        className="
+        to={item.url}
+        className={({ isActive }) => `
           inline-flex
           items-center
           w-full
@@ -35,8 +36,8 @@ const Item: React.FC<{ item: Item }> = (props) => {
           hover:text-gray-800
           dark:text-gray-400
           dark:hover:text-gray-200
-        "
-        to={item.url}
+          ${isActive ? 'underline font-bold text-gray-800 dark:text-gray-200' : ''}
+        `}
       >
         <div className="w-5 h-5">{item.icon}</div>
         <span className="ml-4">{item.title}</span>
@@ -50,18 +51,18 @@ const ComposeButton: React.FC<{}> = () => {
     <Link
       to="/compose"
       className="
-    w-full
-    flex
-    flex-row
-    rounded
-    items-center
-    border-2
-    border-orange-600
-    bg-orange-500
-    text-white
-    justify-center
-    p-2
-  "
+        w-full
+        flex
+        flex-row
+        rounded
+        items-center
+        border-2
+        border-orange-600
+        bg-orange-500
+        text-white
+        justify-center
+        p-2
+      "
     >
       <PencilAltIcon className="w-5 h-5 mr-2" />
       <span>Compose</span>
@@ -74,10 +75,10 @@ const Sidebar: React.FC<{ isOpen: boolean; openSidebar: Function }> = (props) =>
 
   const menus = [
     { title: 'Inbox', icon: <InboxInIconSolid />, url: '/' },
-    // { title: 'Sent', icon: <MailIcon />, url: '/sent' },
-    // { title: 'Important', icon: <ExclamationCircleIcon />, url: '/important' },
+    { title: 'Sent', icon: <MailIcon />, url: '/sent' },
+    { title: 'Important', icon: <ExclamationCircleIcon />, url: '/important' },
     // { title: 'Drafts 30', icon: <PencilAltIcon />, url: '/drafts' },
-    // { title: 'Trash', icon: <TrashIcon />, url: '/trash' },
+    { title: 'Trash', icon: <TrashIcon />, url: '/trash' },
   ];
 
   const identity = useSelector(identitySelectors.getIdentity);

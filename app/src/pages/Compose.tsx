@@ -23,6 +23,8 @@ enum ERRORS {
 const Compose: React.FC<{}> = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const identity = useSelector(identitySelectors.getIdentity);
+  const publicKey = useSelector(identitySelectors.getPublicKey);
+  const walletAddress = useSelector(identitySelectors.getWalletAddress);
 
   const dispatch = useDispatch();
 
@@ -84,30 +86,56 @@ const Compose: React.FC<{}> = () => {
       });
   }
 
+  async function encryptAndSaveMessage(
+    publicKey: string,
+    email: string
+  ): Promise<{ storedEncryptedMessageId: string; encryptedSymmetricObjJSON: string }> {
+    const { encryptedMessage, encryptedSymmetricObjJSON } = await WalletService.encryptData(
+      publicKey,
+      email
+    );
+    const storedEncryptedMessageId = await StorageService.putString(encryptedMessage);
+    return {
+      storedEncryptedMessageId,
+      encryptedSymmetricObjJSON,
+    };
+  }
+
+  /*
+    the email must be encrypted twice
+    1. recipient public key
+    2. sender private key
+  */
   async function send() {
-    const [owner, publicKey] = await Promise.all([
+    const [toOwner, toPublicKey] = await Promise.all([
       IdentityService.identityToOwner(toIdentity),
       IdentityService.publicKeyByIdentity(toIdentity),
     ]);
 
-    if (owner === CONSTANTS.AddressZero) {
+    if (toOwner === CONSTANTS.AddressZero) {
       throw ERRORS.INVALID_RECIPIENT;
     }
 
-    const { encryptedMessage, encryptedSymmetricObjJSON } = await WalletService.encryptData(
-      publicKey,
-      JSON.stringify({
-        subject,
-        message,
-      })
-    );
+    const email = JSON.stringify({
+      subject,
+      message,
+    });
 
-    const storedEncryptedMessageId = await StorageService.putString(encryptedMessage);
+    const [fromEncryptedData, toEncryptedData] = await Promise.all([
+      encryptAndSaveMessage(publicKey!, email),
+      encryptAndSaveMessage(toPublicKey, email),
+    ]);
 
     await ContractService.sendContract({
       contract: 'PointEmail',
       method: 'send',
-      params: [owner, storedEncryptedMessageId, encryptedSymmetricObjJSON],
+      params: [
+        toOwner,
+        fromEncryptedData.storedEncryptedMessageId,
+        fromEncryptedData.encryptedSymmetricObjJSON,
+        toEncryptedData.storedEncryptedMessageId,
+        toEncryptedData.encryptedSymmetricObjJSON,
+      ],
     });
   }
 
