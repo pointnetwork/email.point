@@ -21,7 +21,9 @@ const TableRow: React.FC<TableRowProps> = (props) => {
 
   const dispatch = useDispatch();
 
-  function markAsImportant() {
+  function markAsImportant(event: React.MouseEvent<HTMLElement>) {
+    event.stopPropagation();
+    event.preventDefault();
     setLoading(true);
     onMarkAsImportant(email)
       .then(() => {
@@ -38,18 +40,56 @@ const TableRow: React.FC<TableRowProps> = (props) => {
       });
   }
 
+  function checkEmail(event: React.MouseEvent<HTMLElement>) {
+    event.stopPropagation();
+    event.preventDefault();
+    onChecked(email);
+  }
+
+  function openEmail() {
+    window.location.href = `/show?id=${email.encryptedMessageId}`;
+  }
+
   return (
-    <tr className="text-gray-700 dark:text-gray-400">
-      <td className="px-4 py-2 flex items-center">
-        {onChecked && (
-          <button
-            onClick={() => onChecked(email)}
-            className="border-2 rounded w-6 h-6 border-gray-300 text-xs text-gray-400 mr-2"
-          >
-            {email.checked && <CheckIcon className="w-5 h-5" />}
-          </button>
-        )}
-        <button onClick={markAsImportant} className="border-1 w-10 h-10 text-sm p-2 text-gray-400">
+    <tr
+      className="
+        bg-white
+        border-b
+        dark:bg-gray-800
+        dark:border-gray-700
+        hover:bg-gray-100
+        hover:dark:bg-gray-900
+        cursor-pointer
+      "
+      onClick={openEmail}
+    >
+      <td className="px-4 py-2 align-middle">
+        <button
+          onClick={checkEmail}
+          className="
+            border-2
+            rounded
+            w-6
+            h-6
+            border-gray-300
+            text-xs
+            text-gray-400
+            mr-2
+          "
+        >
+          {email.checked ? <CheckIcon className="w-5 h-5" /> : <div className="w-5 h-5"></div>}
+        </button>
+        <button
+          onClick={markAsImportant}
+          className="
+            border-1
+            w-10
+            h-10
+            text-sm
+            p-2
+            text-gray-400
+          "
+        >
           {loading ? (
             <Spinner className="w-5 h-5" />
           ) : email.important ? (
@@ -59,16 +99,18 @@ const TableRow: React.FC<TableRowProps> = (props) => {
           )}
         </button>
       </td>
-      <td className="px-4 py-3 text-sm">
+      <td className="px-4 py-3 text-sm align-middle">
         <span className="w-full">@{email.fromIdentity}</span>
       </td>
-      <td className="px-4 py-3 text-sm">{email.subject}</td>
-      <td className="px-4 py-3 text-sm">
-        <Link to={`/show?id=${email.encryptedMessageId}`}>
-          <span className="w-full underline">Decrypt Message</span>
-        </Link>
+      <td className="px-4 py-3 text-sm align-middle">
+        <p className="whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">{email.subject}</p>
       </td>
-      <td className="px-4 py-3 text-sm">{dayjs(email.createdAt).format('MMMM DD, hh:mm')}</td>
+      <td className="px-4 py-3 text-sm align-middle">
+        <p className="whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">{email.message}</p>
+      </td>
+      <td className="px-4 py-3 text-sm align-middle">
+        {dayjs(email.createdAt).format('MMMM DD, hh:mm')}
+      </td>
     </tr>
   );
 };
