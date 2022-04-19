@@ -64,7 +64,7 @@ const Compose: React.FC<{}> = () => {
       setMessage(
         `\n\n| On ${dayjs(replyToEmail.createdAt).format('MMMM DD, YYYY hh:mm')} <@${
           replyToEmail.fromIdentity
-        }> wrote:\n| ${replyToEmail.message!.split('\n').join('\n| ')}\n`
+        }> wrote:\n| ${replyToEmail.message!.split('\n').join('\n| ')}`
       );
       setTimeout(() => {
         messageInput.current!.focus();
