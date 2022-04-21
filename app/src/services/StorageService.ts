@@ -17,3 +17,8 @@ export async function getString(storedStringId: StoredStringId): Promise<string>
 
   return storedString;
 }
+
+export async function putFile(file: File) {
+  const response = await windowWithPoint.point.storage.putFile(file);
+  return response;
+}

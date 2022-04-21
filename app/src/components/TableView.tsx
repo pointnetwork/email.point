@@ -211,6 +211,7 @@ const TableView: React.FC<Props> = (props) => {
                       <th className="px-4 py-3">From</th>
                       <th className="px-4 py-3">Subject</th>
                       <th className="px-4 py-3">Message</th>
+                      <th className="px-4 py-3"></th>
                       <th className="px-4 py-3">Date</th>
                     </tr>
                   </thead>

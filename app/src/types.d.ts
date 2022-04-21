@@ -14,7 +14,7 @@ type Address = string;
 
 type Identity = string;
 
-type EmailInputData = [number, string, string, number, string, string, boolean, boolean];
+type EmailInputData = [number, string, string, number, string, string, boolean, boolean, string];
 
 type Email = {
   id: number;
@@ -30,4 +30,5 @@ type Email = {
   checked?: boolean;
   important?: boolean;
   deleted?: boolean;
+  attachments?: Array;
 };
