@@ -110,7 +110,6 @@ const TableView: React.FC<Props> = (props) => {
           ({ createdAt: ca1 }: { createdAt: number }, { createdAt: ca2 }: { createdAt: number }) =>
             ca2 - ca1
         );
-        console.log(emails);
         setLoading(false);
         setEmails(emails);
       })

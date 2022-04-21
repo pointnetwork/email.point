@@ -29,7 +29,6 @@ function getFileContent(file: File): Promise<FileContent> {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (event) => {
-      console.log(event?.target);
       const content = event?.target?.result;
       resolve(content);
     };
@@ -226,11 +225,9 @@ const Compose: React.FC<{}> = () => {
             lastModified: attachment.lastModified,
             ...encryptedFileContent,
           };
-          console.log('attachmentToSave', attachmentToSave);
           return attachmentToSave;
         })
       );
-      console.log('encryptedAttachmentsData', encryptedAttachmentsData);
       return encryptedAttachmentsData;
     }
 
@@ -280,7 +277,6 @@ const Compose: React.FC<{}> = () => {
     if (!attachment) {
       return;
     }
-    console.log(attachment.size);
 
     if (attachment.size > FILE_MAX_SIZE) {
       uiActions.showErrorNotification({

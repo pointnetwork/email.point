@@ -37,7 +37,10 @@ const Attachment: React.FC<{ attachment: Attachment }> = (props) => {
       encryptedFileContent,
       attachment.encryptedSymmetricObjJSON
     );
-    const file = new File([decryptedFileContent], attachment.name, {
+
+    const blob = await (await fetch(decryptedFileContent)).blob();
+
+    const file = new File([blob], attachment.name, {
       lastModified: attachment.lastModified,
       type: attachment.type,
     });
