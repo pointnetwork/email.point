@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { StarIcon, CheckIcon } from '@heroicons/react/solid';
-import { StarIcon as StarIconOutline } from '@heroicons/react/outline';
+import { StarIcon as StarIconOutline, PaperClipIcon } from '@heroicons/react/outline';
 import dayjs from 'dayjs';
 
 import { actions as uiActions } from '@store/modules/ui';
@@ -20,6 +20,11 @@ const TableRow: React.FC<TableRowProps> = (props) => {
   const [loading, setLoading] = useState<boolean>(false);
 
   const dispatch = useDispatch();
+
+  function sendToSender(event: React.MouseEvent<HTMLElement>) {
+    event.stopPropagation();
+    window.location.href = `/compose?toIdentity=${email.fromIdentity}`;
+  }
 
   function markAsImportant(event: React.MouseEvent<HTMLElement>) {
     event.stopPropagation();
@@ -100,13 +105,25 @@ const TableRow: React.FC<TableRowProps> = (props) => {
         </button>
       </td>
       <td className="px-4 py-3 text-sm align-middle">
-        <span className="w-full">@{email.fromIdentity}</span>
+        <span
+          onClick={sendToSender}
+          className="w-full cursor-pointer hover:underline hover:font-semibold"
+        >
+          @{email.fromIdentity}
+        </span>
       </td>
       <td className="px-4 py-3 text-sm align-middle">
         <p className="whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">{email.subject}</p>
       </td>
       <td className="px-4 py-3 text-sm align-middle">
         <p className="whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">{email.message}</p>
+      </td>
+      <td>
+        {email.attachments && email.attachments.length ? (
+          <PaperClipIcon className="w-5 h-5 font-gray-500" />
+        ) : (
+          ''
+        )}
       </td>
       <td className="px-4 py-3 text-sm align-middle">
         {dayjs(email.createdAt).format('MMMM DD, hh:mm')}

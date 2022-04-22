@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSearchParams } from 'react-router-dom';
 
-import { MailIcon, UserIcon } from '@heroicons/react/outline';
+import { MailIcon, UserIcon, PaperClipIcon, XCircleIcon } from '@heroicons/react/outline';
 import { UploadIcon } from '@heroicons/react/solid';
 
 import Spinner from '@components/Spinner';
@@ -23,6 +23,46 @@ enum ERRORS {
   INVALID_RECIPIENT,
 }
 
+type FileContent = string | ArrayBuffer | null | undefined;
+
+function getFileContent(file: File): Promise<FileContent> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event?.target?.result;
+      resolve(content);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+const AttachmentBag: React.FC<{ attachment: File; onRemoveHandler: Function }> = (props) => {
+  const { attachment, onRemoveHandler } = props;
+  return (
+    <div
+      className="
+        rounded
+        bg-gray-200
+        py-2
+        px-4
+        text-gray-500
+        flex
+        flex-row
+        items-center
+        justify-center
+        m-1
+      "
+    >
+      <button type="button" onClick={() => onRemoveHandler(attachment)}>
+        <XCircleIcon className="w-6 h-6 mr-2" />
+      </button>
+      <span className="font-semibold">{attachment.name}</span>
+    </div>
+  );
+};
+
+const FILE_MAX_SIZE = 1048576;
+
 const Compose: React.FC<{}> = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const identity = useSelector(identitySelectors.getIdentity);
@@ -30,13 +70,16 @@ const Compose: React.FC<{}> = () => {
 
   const dispatch = useDispatch();
 
-  const messageInput = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [searchParams] = useSearchParams();
 
   const [toIdentity, setToIdentity] = useState<string>('');
   const [subject, setSubject] = useState<string>('');
   const [message, setMessage] = useState<string>('');
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   function toIdentityChangedHandler(event: React.ChangeEvent<HTMLInputElement>) {
     setToIdentity(event.target.value);
@@ -54,6 +97,7 @@ const Compose: React.FC<{}> = () => {
     setToIdentity('');
     setSubject('');
     setMessage('');
+    setAttachments([]);
   }
 
   async function setReplyEmailData(replyToMessageId: string) {
@@ -67,8 +111,8 @@ const Compose: React.FC<{}> = () => {
         }> wrote:\n| ${replyToEmail.message!.split('\n').join('\n| ')}`
       );
       setTimeout(() => {
-        messageInput.current!.focus();
-        messageInput.current!.setSelectionRange(0, 0);
+        messageInputRef.current!.focus();
+        messageInputRef.current!.setSelectionRange(0, 0);
       }, 1);
     } catch (error) {
       console.error(error);
@@ -82,19 +126,29 @@ const Compose: React.FC<{}> = () => {
     if (!identity) {
       return;
     }
-    const replyTo = searchParams.get('replyTo');
-    if (!replyTo) {
-      setLoading(false);
+    const {
+      replyTo,
+      toIdentity = '',
+      subject = '',
+      message = '',
+    } = Object.fromEntries([...searchParams]);
+    if (replyTo) {
+      // get email data and autocomplete the form
+      setReplyEmailData(replyTo)
+        .then(() => {
+          setLoading(false);
+        })
+        .catch((error) => {
+          console.error(error);
+          setLoading(false);
+        });
       return;
     }
-    setReplyEmailData(replyTo)
-      .then(() => {
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error(error);
-        setLoading(false);
-      });
+    // autocomplete from query params
+    setToIdentity(toIdentity);
+    setSubject(subject);
+    setMessage(message);
+    setLoading(false);
   }, [identity]);
 
   function onSendHandler(event: React.FormEvent<HTMLFormElement>) {
@@ -125,13 +179,13 @@ const Compose: React.FC<{}> = () => {
       });
   }
 
-  async function encryptAndSaveMessage(
+  async function encryptAndSaveData(
     publicKey: string,
-    email: string
+    data: string
   ): Promise<{ storedEncryptedMessageId: string; encryptedSymmetricObjJSON: string }> {
     const { encryptedMessage, encryptedSymmetricObjJSON } = await WalletService.encryptData(
       publicKey,
-      email
+      data
     );
     const storedEncryptedMessageId = await StorageService.putString(encryptedMessage);
     return {
@@ -155,14 +209,54 @@ const Compose: React.FC<{}> = () => {
       throw ERRORS.INVALID_RECIPIENT;
     }
 
-    const email = JSON.stringify({
-      subject,
-      message,
-    });
+    async function getEncryptedAttachments(attachments: File[], publickKey: string) {
+      const encryptedAttachmentsData = await Promise.all(
+        attachments.map(async (attachment) => {
+          const attachmentContent = await getFileContent(attachment);
+          // encrypt file content and save it
+          const encryptedFileContent = await encryptAndSaveData(
+            publickKey,
+            attachmentContent as string
+          );
+          const attachmentToSave = {
+            name: attachment.name,
+            size: attachment.size,
+            type: attachment.type,
+            lastModified: attachment.lastModified,
+            ...encryptedFileContent,
+          };
+          return attachmentToSave;
+        })
+      );
+      return encryptedAttachmentsData;
+    }
+
+    let fromEncryptedAttachments;
+    let toEncryptedAttachments;
+    if (attachments) {
+      [fromEncryptedAttachments, toEncryptedAttachments] = await Promise.all([
+        getEncryptedAttachments(attachments, publicKey!),
+        getEncryptedAttachments(attachments, toPublicKey),
+      ]);
+    }
 
     const [fromEncryptedData, toEncryptedData] = await Promise.all([
-      encryptAndSaveMessage(publicKey!, email),
-      encryptAndSaveMessage(toPublicKey, email),
+      encryptAndSaveData(
+        publicKey!,
+        JSON.stringify({
+          subject,
+          message,
+          attachments: fromEncryptedAttachments,
+        })
+      ),
+      encryptAndSaveData(
+        toPublicKey,
+        JSON.stringify({
+          subject,
+          message,
+          attachments: toEncryptedAttachments,
+        })
+      ),
     ]);
 
     await ContractService.sendContract({
@@ -175,6 +269,38 @@ const Compose: React.FC<{}> = () => {
         toEncryptedData.storedEncryptedMessageId,
         toEncryptedData.encryptedSymmetricObjJSON,
       ],
+    });
+  }
+
+  function addAttachment(event: React.ChangeEvent<HTMLInputElement>) {
+    const attachment = (event?.target?.files || [])[0];
+    if (!attachment) {
+      return;
+    }
+
+    if (attachment.size > FILE_MAX_SIZE) {
+      uiActions.showErrorNotification({
+        message: 'File is too big',
+      });
+      return;
+    }
+
+    setAttachments((_attachments) => {
+      const attachments = [..._attachments];
+      attachments.push(attachment);
+      return attachments;
+    });
+    if (fileInputRef!.current?.value) {
+      fileInputRef.current.value = '';
+    }
+  }
+
+  function removeAttachment(attachment: File) {
+    setAttachments((_attachments) => {
+      const attachments = [..._attachments];
+      const index = attachments.indexOf(attachment);
+      attachments.splice(index, 1);
+      return attachments;
     });
   }
 
@@ -263,7 +389,7 @@ const Compose: React.FC<{}> = () => {
           <textarea
             disabled={!!loading}
             required={true}
-            ref={messageInput}
+            ref={messageInputRef}
             className="
               block 
               w-full 
@@ -288,38 +414,76 @@ const Compose: React.FC<{}> = () => {
             onChange={messageChangedHandler}
           ></textarea>
         </label>
-        <button
-          type="submit"
-          disabled={!!loading}
-          className="
-            w-lg
-            flex
-            flex-row
-            rounded
-            items-center
-            border-2
-            border-green-600
-            bg-green-500
-            text-white
-            justify-center
-            p-2
-            px-10
-            mt-1
-            mb-5
-          "
-        >
-          {loading ? (
-            <>
-              <Spinner className="w-5 h-5 mr-2" />
-              <span>Sending...</span>
-            </>
-          ) : (
-            <>
-              <UploadIcon className="w-5 h-5 mr-2" />
-              <span>Encrypt & Send Email</span>
-            </>
-          )}
-        </button>
+        {attachments.length ? (
+          <div className="text-sm flex flex-col">
+            <span className="mr-2 mb-2">Attachments:</span>
+            <div className="flex flex-row flex-wrap">
+              {attachments.map((attachment, index) => (
+                <AttachmentBag
+                  attachment={attachment}
+                  key={index}
+                  onRemoveHandler={removeAttachment}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          ''
+        )}
+
+        <div className="flex flex-row mt-4">
+          <button
+            type="submit"
+            disabled={!!loading}
+            className="
+              w-lg
+              flex
+              flex-row
+              rounded
+              items-center
+              border-2
+              border-green-600
+              bg-green-500
+              text-white
+              justify-center
+              p-2
+              px-10
+              text-sm
+            "
+          >
+            {loading ? (
+              <>
+                <Spinner className="w-5 h-5 mr-2" />
+                <span>Sending...</span>
+              </>
+            ) : (
+              <>
+                <UploadIcon className="w-5 h-5 mr-2" />
+                <span>Encrypt & Send Email</span>
+              </>
+            )}
+          </button>
+
+          <input type="file" ref={fileInputRef} className="hidden" onChange={addAttachment} />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="
+              text-sm
+              rounded 
+              w-12 
+              h-12 
+              flex 
+              justify-center 
+              items-center 
+              ml-2
+              hover:bg-gray-100
+              dark:hover:bg-gray-700
+            "
+          >
+            <PaperClipIcon className="w-5 h-5 md-w-6 md-h-6" />
+          </button>
+        </div>
       </form>
     </div>
   );

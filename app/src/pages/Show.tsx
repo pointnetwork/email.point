@@ -2,14 +2,122 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import dayjs from 'dayjs';
-import { ReplyIcon } from '@heroicons/react/solid';
+import { ReplyIcon, CloudDownloadIcon } from '@heroicons/react/solid';
+import { PaperClipIcon } from '@heroicons/react/outline';
 
 import { getEmailData } from '@services/EmailService';
+
+import * as WalletService from '@services/WalletService';
+import * as StorageService from '@services/StorageService';
 
 import { actions as uiActions } from '@store/modules/ui';
 
 import RedirectWithTimeout from '@components/RedirectWithTimeout';
 import Spinner from '@components/Spinner';
+
+type Attachment = {
+  name: string;
+  type: string;
+  size: string;
+  lastModified: number;
+  storedEncryptedMessageId: string;
+  encryptedSymmetricObjJSON: string;
+};
+
+const Attachment: React.FC<{ attachment: Attachment }> = (props) => {
+  const { attachment } = props;
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  async function getEncryptedFile() {
+    const encryptedFileContent = await StorageService.getString(
+      attachment.storedEncryptedMessageId
+    );
+    const decryptedFileContent = await WalletService.decryptData(
+      encryptedFileContent,
+      attachment.encryptedSymmetricObjJSON
+    );
+
+    const blob = await (await fetch(decryptedFileContent)).blob();
+
+    const file = new File([blob], attachment.name, {
+      lastModified: attachment.lastModified,
+      type: attachment.type,
+    });
+    setUrl(URL.createObjectURL(file));
+  }
+
+  function getAttachmentFile() {
+    if (loading || url) {
+      return;
+    }
+    setLoading(true);
+    getEncryptedFile()
+      .then(() => {
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error(error);
+        setLoading(false);
+      });
+  }
+
+  if (url) {
+    return (
+      <a
+        href={url}
+        download={attachment.name}
+        className="
+          rounded
+          bg-gray-200
+          py-2
+          px-4
+          text-gray-500
+          flex
+          flex-row
+          items-center
+          justify-center
+          underline
+        "
+      >
+        <CloudDownloadIcon className="w-4 h-4 mr-2" />
+        <span>Download {attachment.name}</span>
+      </a>
+    );
+  }
+
+  return (
+    <div
+      className="
+        rounded 
+        underline 
+        cursor-pointer
+        flex
+        flex-row
+        items-center
+        justify-center
+        rounded
+        bg-gray-200
+        py-2
+        px-4
+        text-gray-500
+      "
+      onClick={getAttachmentFile}
+    >
+      {loading ? (
+        <>
+          <Spinner className="w-4 h-4 mr-2" />
+          <span>Decrypting file</span>
+        </>
+      ) : (
+        <>
+          <PaperClipIcon className="w-4 h-4 mr-2" />
+          <span>Decrypt {attachment.name}</span>
+        </>
+      )}
+    </div>
+  );
+};
 
 const Show: React.FC<{}> = () => {
   const [emailData, setEmailData] = useState<any>();
@@ -122,6 +230,15 @@ const Show: React.FC<{}> = () => {
               </span>
             </div>
             <div className="mt-5 whitespace-pre-line">{emailData.message.split('| On')}</div>
+            {emailData.attachments ? (
+              <div className="flex flex-row flex-wrap mt-5 border-t-2 border-gray-200 pt-2 text-sm">
+                {emailData.attachments.map((attachment: Attachment, index: number) => (
+                  <Attachment key={index} attachment={attachment} />
+                ))}
+              </div>
+            ) : (
+              ''
+            )}
           </div>
           <div
             className="

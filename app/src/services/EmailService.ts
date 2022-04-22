@@ -10,6 +10,5 @@ export async function getEmailData(messageId: string) {
   });
 
   const email = await EmailMapper(rawEmail);
-  console.log(email);
   return email;
 }
