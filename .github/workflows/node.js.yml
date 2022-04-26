@@ -20,17 +20,27 @@ jobs:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
+    
     - uses: actions/checkout@v3
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-    - name: install yarn
+    
+    - uses: actions/cache@v2
+      with:
+        path: '**/node_modules'
+        key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+
+    - name: Install yarn
       run: npm install -g yarn
-    - name: install dependencies
+
+    - name: Install dependencies
       run: yarn install && cd ./app && yarn install
-    - name: contract verification
+
+    - name: Contract verification
       run: yarn ci:contract
-    - name: app verification
+
+    - name: App verification
       run: yarn ci:app
