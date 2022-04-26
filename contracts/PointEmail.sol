@@ -18,7 +18,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     struct Email {
         uint256 id;
         address from;
-        address to;
+        address[] to;
         uint256 createdAt;
     }
 
@@ -33,7 +33,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     struct EmailWithUserMetaData {
         uint256 id;
         address from;
-        address to;
+        address[] to;
         uint256 createdAt;
         bytes32 encryptedMessageId;
         string encryptedSymmetricObj;
@@ -53,7 +53,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     event EmailSent(
         uint256 id,
         address indexed from,
-        address indexed to,
+        address[] indexed to,
         uint256 indexed timestamp
     );
 
@@ -81,36 +81,54 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     modifier onlySenderOrRecipient(uint256 _emailId) {
         require(
             emailIdToEmail[_emailId].from == msg.sender ||
-                emailIdToEmail[_emailId].to == msg.sender,
+                emailUserMetadata[_emailId][msg.sender]
+                    .encryptedMessageId
+                    .length !=
+                0,
             "Permission Denied"
         );
         _;
     }
 
     modifier onlyRecipient(uint256 _emailId) {
-        require(emailIdToEmail[_emailId].to == msg.sender, "Only Recipient");
+        require(
+            emailIdToEmail[_emailId].from == msg.sender ||
+                emailUserMetadata[_emailId][msg.sender]
+                    .encryptedMessageId
+                    .length !=
+                0,
+            "Only Recipient"
+        );
         _;
     }
 
     /**
      * @notice This function should be used to send a new email to a recipient
      * @dev Send a new email to a recipient
-     * @param _to - The recipient address
      * @param _fromEncryptedMessageId - The stored message id for the sender
      * @param _fromEncryptedSymmetricObj - The encryption settings for the sender
-     * @param _toEncryptedMessageId - The stored message id for the sender
-     * @param _toEncryptedSymmetricObj - The encryption settings for the sender
+     * @param _to - The recipients addresses
+     * @param _recipientsEncryptedMessageIds - The recipients stored message ids
+     * @param _recipientsEncryptedSymmetricObjs - The recipients settings
      */
     function send(
-        address _to,
         bytes32 _fromEncryptedMessageId,
         string memory _fromEncryptedSymmetricObj,
-        bytes32 _toEncryptedMessageId,
-        string memory _toEncryptedSymmetricObj
+        address[] memory _to,
+        bytes32[] memory _recipientsEncryptedMessageIds,
+        string[] memory _recipientsEncryptedSymmetricObjs
     ) external {
+        require(
+            _to.length == _recipientsEncryptedMessageIds.length &&
+                _to.length == _recipientsEncryptedSymmetricObjs.length,
+            "Invalid input params"
+        );
+
+        // New email id
         _emailIds.increment();
         uint256 newEmailId = _emailIds.current();
 
+        // New email object
         Email memory _email = Email(
             newEmailId,
             msg.sender,
@@ -120,10 +138,8 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
         emailIdToEmail[newEmailId] = _email;
 
-        // add email to mappings
-        toEmails[_to].push(_email);
+        // sender info
         fromEmails[msg.sender].push(_email);
-
         EmailUserMetaData memory _fromMetadata = EmailUserMetaData(
             _fromEncryptedMessageId,
             _fromEncryptedSymmetricObj,
@@ -133,14 +149,20 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         );
         emailUserMetadata[newEmailId][msg.sender] = _fromMetadata;
 
-        EmailUserMetaData memory _toMetadata = EmailUserMetaData(
-            _toEncryptedMessageId,
-            _toEncryptedSymmetricObj,
-            false,
-            false,
-            false
-        );
-        emailUserMetadata[newEmailId][_to] = _toMetadata;
+        // recipients info
+        for (uint256 i = 0; i < _to.length; i++) {
+            toEmails[_to[i]].push(_email);
+
+            EmailUserMetaData memory _toMetadata = EmailUserMetaData(
+                _recipientsEncryptedMessageIds[i],
+                _recipientsEncryptedSymmetricObjs[i],
+                false,
+                false,
+                false
+            );
+
+            emailUserMetadata[newEmailId][_to[i]] = _toMetadata;
+        }
 
         emit EmailSent(newEmailId, msg.sender, _to, block.timestamp);
     }

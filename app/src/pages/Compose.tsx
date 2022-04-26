@@ -2,10 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSearchParams } from 'react-router-dom';
 
-import { MailIcon, UserIcon, PaperClipIcon, XCircleIcon } from '@heroicons/react/outline';
+import { MailIcon, PaperClipIcon } from '@heroicons/react/outline';
 import { UploadIcon } from '@heroicons/react/solid';
 
 import Spinner from '@components/Spinner';
+import AttachmentBag from '@components/AttachmentBag';
+import RecipientsInput from '@components/RecipientsInput';
 
 import { getEmailData } from '@services/EmailService';
 import * as ContractService from '@services/ContractService';
@@ -36,32 +38,56 @@ function getFileContent(file: File): Promise<FileContent> {
   });
 }
 
-const AttachmentBag: React.FC<{ attachment: File; onRemoveHandler: Function }> = (props) => {
-  const { attachment, onRemoveHandler } = props;
-  return (
-    <div
-      className="
-        rounded
-        bg-gray-200
-        py-2
-        px-4
-        text-gray-500
-        flex
-        flex-row
-        items-center
-        justify-center
-        m-1
-      "
-    >
-      <button type="button" onClick={() => onRemoveHandler(attachment)}>
-        <XCircleIcon className="w-6 h-6 mr-2" />
-      </button>
-      <span className="font-semibold">{attachment.name}</span>
-    </div>
+const FILE_MAX_SIZE = 1048576;
+
+async function encryptAndSaveData(
+  publicKey: string,
+  data: string
+): Promise<{ storedEncryptedMessageId: string; encryptedSymmetricObjJSON: string }> {
+  const { encryptedMessage, encryptedSymmetricObjJSON } = await WalletService.encryptData(
+    publicKey,
+    data
   );
+  const storedEncryptedMessageId = await StorageService.putString(encryptedMessage);
+  return {
+    storedEncryptedMessageId,
+    encryptedSymmetricObjJSON,
+  };
+}
+
+type EncryptedAttachments = {
+  storedEncryptedMessageId: string;
+  encryptedSymmetricObjJSON: string;
+  name: string;
+  size: number;
+  type: string;
+  lastModified: number;
 };
 
-const FILE_MAX_SIZE = 1048576;
+async function getEncryptedAttachments(
+  attachments: File[],
+  publickKey: string
+): Promise<EncryptedAttachments[]> {
+  const encryptedAttachmentsData = await Promise.all(
+    attachments.map(async (attachment) => {
+      const attachmentContent = await getFileContent(attachment);
+      // encrypt file content and save it
+      const encryptedFileContent = await encryptAndSaveData(
+        publickKey,
+        attachmentContent as string
+      );
+      const attachmentToSave = {
+        name: attachment.name,
+        size: attachment.size,
+        type: attachment.type,
+        lastModified: attachment.lastModified,
+        ...encryptedFileContent,
+      };
+      return attachmentToSave;
+    })
+  );
+  return encryptedAttachmentsData;
+}
 
 const Compose: React.FC<{}> = () => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -76,14 +102,11 @@ const Compose: React.FC<{}> = () => {
 
   const [searchParams] = useSearchParams();
 
+  const [recipients, setRecipients] = useState<Identity[]>([]);
   const [toIdentity, setToIdentity] = useState<string>('');
   const [subject, setSubject] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [attachments, setAttachments] = useState<File[]>([]);
-
-  function toIdentityChangedHandler(event: React.ChangeEvent<HTMLInputElement>) {
-    setToIdentity(event.target.value);
-  }
 
   function subjectChangedHandler(event: React.ChangeEvent<HTMLInputElement>) {
     setSubject(event.target.value);
@@ -94,16 +117,33 @@ const Compose: React.FC<{}> = () => {
   }
 
   function cleanForm() {
-    setToIdentity('');
+    setRecipients([]);
     setSubject('');
     setMessage('');
     setAttachments([]);
   }
 
+  function addRecipient(recipient: Identity) {
+    setRecipients((_recipients) => {
+      const recipients = [..._recipients];
+      recipients.push(recipient);
+      return recipients;
+    });
+  }
+
+  function removeRecipient(recipient: Identity) {
+    setRecipients((_recipients) => {
+      const recipients = [..._recipients];
+      const index = recipients.indexOf(recipient);
+      recipients.splice(index, 1);
+      return recipients;
+    });
+  }
+
   async function setReplyEmailData(replyToEmailId: string) {
     try {
       const replyToEmail = await getEmailData(replyToEmailId);
-      setToIdentity(replyToEmail.fromIdentity!);
+      setRecipients([replyToEmail.fromIdentity!]);
       setSubject(`RE: ${replyToEmail.subject!}`);
       setMessage(
         `\n\n| On ${dayjs(replyToEmail.createdAt).format('MMMM DD, YYYY hh:mm')} <@${
@@ -128,12 +168,7 @@ const Compose: React.FC<{}> = () => {
     if (!identity) {
       return;
     }
-    const {
-      replyTo,
-      toIdentity = '',
-      subject = '',
-      message = '',
-    } = Object.fromEntries([...searchParams]);
+    const { replyTo, to = '', subject = '', message = '' } = Object.fromEntries([...searchParams]);
     if (replyTo) {
       // get email data and autocomplete the form
       setReplyEmailData(replyTo)
@@ -147,7 +182,9 @@ const Compose: React.FC<{}> = () => {
       return;
     }
     // autocomplete from query params
-    setToIdentity(toIdentity);
+    if (to) {
+      setRecipients([to]);
+    }
     setSubject(subject);
     setMessage(message);
     setLoading(false);
@@ -181,68 +218,42 @@ const Compose: React.FC<{}> = () => {
       });
   }
 
-  async function encryptAndSaveData(
-    publicKey: string,
-    data: string
-  ): Promise<{ storedEncryptedMessageId: string; encryptedSymmetricObjJSON: string }> {
-    const { encryptedMessage, encryptedSymmetricObjJSON } = await WalletService.encryptData(
-      publicKey,
-      data
-    );
-    const storedEncryptedMessageId = await StorageService.putString(encryptedMessage);
-    return {
-      storedEncryptedMessageId,
-      encryptedSymmetricObjJSON,
-    };
-  }
-
   /*
     the email must be encrypted twice
     1. recipient public key
     2. sender private key
   */
   async function send() {
-    const [toOwner, toPublicKey] = await Promise.all([
-      IdentityService.identityToOwner(toIdentity),
-      IdentityService.publicKeyByIdentity(toIdentity),
-    ]);
+    const recipientsData = await Promise.all(
+      recipients.map(async (recipient) => {
+        const [address, publicKey] = await Promise.all([
+          IdentityService.identityToOwner(recipient),
+          IdentityService.publicKeyByIdentity(recipient),
+        ]);
+        return {
+          address,
+          publicKey,
+        };
+      })
+    );
 
-    if (toOwner === CONSTANTS.AddressZero) {
+    const invalidRecipient = recipientsData.find(
+      ({ address }) => address === CONSTANTS.AddressZero
+    );
+    if (invalidRecipient) {
       throw ERRORS.INVALID_RECIPIENT;
     }
 
-    async function getEncryptedAttachments(attachments: File[], publickKey: string) {
-      const encryptedAttachmentsData = await Promise.all(
-        attachments.map(async (attachment) => {
-          const attachmentContent = await getFileContent(attachment);
-          // encrypt file content and save it
-          const encryptedFileContent = await encryptAndSaveData(
-            publickKey,
-            attachmentContent as string
-          );
-          const attachmentToSave = {
-            name: attachment.name,
-            size: attachment.size,
-            type: attachment.type,
-            lastModified: attachment.lastModified,
-            ...encryptedFileContent,
-          };
-          return attachmentToSave;
-        })
-      );
-      return encryptedAttachmentsData;
-    }
-
     let fromEncryptedAttachments;
-    let toEncryptedAttachments;
+    let recipientsEncryptedAttachments: EncryptedAttachments[];
     if (attachments) {
-      [fromEncryptedAttachments, toEncryptedAttachments] = await Promise.all([
+      [fromEncryptedAttachments, recipientsEncryptedAttachments] = await Promise.all([
         getEncryptedAttachments(attachments, publicKey!),
-        getEncryptedAttachments(attachments, toPublicKey),
+        ...recipientsData.map(({ publicKey }) => getEncryptedAttachments(attachments, publicKey)),
       ]);
     }
 
-    const [fromEncryptedData, toEncryptedData] = await Promise.all([
+    const [fromEncryptedData, ...recipientsEncryptedData] = await Promise.all([
       encryptAndSaveData(
         publicKey!,
         JSON.stringify({
@@ -251,13 +262,15 @@ const Compose: React.FC<{}> = () => {
           attachments: fromEncryptedAttachments,
         })
       ),
-      encryptAndSaveData(
-        toPublicKey,
-        JSON.stringify({
-          subject,
-          message,
-          attachments: toEncryptedAttachments,
-        })
+      ...recipientsData.map(({ publicKey }, index) =>
+        encryptAndSaveData(
+          publicKey,
+          JSON.stringify({
+            subject,
+            message,
+            attachments: recipientsEncryptedAttachments[index],
+          })
+        )
       ),
     ]);
 
@@ -265,11 +278,11 @@ const Compose: React.FC<{}> = () => {
       contract: 'PointEmail',
       method: 'send',
       params: [
-        toOwner,
         fromEncryptedData.storedEncryptedMessageId,
         fromEncryptedData.encryptedSymmetricObjJSON,
-        toEncryptedData.storedEncryptedMessageId,
-        toEncryptedData.encryptedSymmetricObjJSON,
+        recipientsData.map(({ address }) => address),
+        recipientsEncryptedData.map(({ storedEncryptedMessageId }) => storedEncryptedMessageId),
+        recipientsEncryptedData.map(({ encryptedSymmetricObjJSON }) => encryptedSymmetricObjJSON),
       ],
     });
   }
@@ -318,40 +331,12 @@ const Compose: React.FC<{}> = () => {
         onSubmit={onSendHandler}
         className="px-4 py-3 mb-8 bg-white rounded-lg shadow-md dark:bg-gray-800"
       >
-        <label className="block text-sm">
-          <span className="text-gray-700 dark:text-gray-400">To</span>
-          <div className="relative text-gray-500 focus-within:text-green-600 dark:focus-within:text-green-400">
-            <input
-              disabled={!!loading}
-              required={true}
-              className="
-                block
-                w-full
-                pl-10
-                mt-1
-                mb-5
-                border-2
-                rounded
-                text-sm
-                text-black
-                dark:text-gray-300
-                dark:border-gray-600
-                dark:bg-gray-700
-                focus:border-green-400
-                focus:outline-nonemb-5
-                focus:shadow-outline-green
-                dark:focus:shadow-outline-gray
-                form-input
-              "
-              value={toIdentity}
-              onChange={toIdentityChangedHandler}
-              placeholder="Email Recipient Identity"
-            />
-            <div className="absolute inset-y-0 flex items-center ml-3 pointer-events-none">
-              <UserIcon className="w-5 h-6" />
-            </div>
-          </div>
-        </label>
+        <RecipientsInput
+          recipients={recipients}
+          loading={loading}
+          addRecipient={addRecipient}
+          removeRecipient={removeRecipient}
+        />
 
         <label className="block text-sm">
           <span className="text-gray-700 dark:text-gray-400">Subject</span>
