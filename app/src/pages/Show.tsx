@@ -9,6 +9,7 @@ import { getEmailData } from '@services/EmailService';
 
 import * as WalletService from '@services/WalletService';
 import * as StorageService from '@services/StorageService';
+import * as EmailService from '@services/EmailService';
 
 import { actions as uiActions } from '@store/modules/ui';
 
@@ -141,6 +142,9 @@ const Show: React.FC<{}> = () => {
     getEmailData(messageId)
       .then((emailData) => {
         setEmailData(emailData);
+        if (!emailData.read) {
+          EmailService.markEmailAsRead(emailData.encryptedMessageId, true);
+        }
         setLoading(false);
       })
       .catch((error) => {

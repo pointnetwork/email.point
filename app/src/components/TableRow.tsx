@@ -57,7 +57,7 @@ const TableRow: React.FC<TableRowProps> = (props) => {
 
   return (
     <tr
-      className="
+      className={`
         bg-white
         border-b
         dark:bg-gray-800
@@ -65,7 +65,8 @@ const TableRow: React.FC<TableRowProps> = (props) => {
         hover:bg-gray-100
         hover:dark:bg-gray-900
         cursor-pointer
-      "
+        ${!email.read ? 'font-bold' : ''}
+      `}
       onClick={openEmail}
     >
       <td className="px-4 py-2 align-middle">

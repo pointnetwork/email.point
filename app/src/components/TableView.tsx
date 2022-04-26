@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { InboxIcon, BanIcon, CheckIcon, RefreshIcon } from '@heroicons/react/outline';
 
-import * as ContractService from '@services/ContractService';
+import * as EmailService from '@services/EmailService';
 
 import { actions as uiActions } from '@store/modules/ui';
 import { selectors as identitySelectors } from '@store/modules/identity';
@@ -32,11 +32,7 @@ const TableView: React.FC<Props> = (props) => {
   const someChecked = emails.some(({ checked }) => checked);
 
   async function onMarkAsImportantHandler(_email: Email) {
-    await ContractService.sendContract({
-      contract: 'PointEmail',
-      method: 'markAsImportant',
-      params: [_email.encryptedMessageId, !_email.important],
-    });
+    await EmailService.markEmailAsImportant(_email.encryptedMessageId, !_email.important);
     setEmails((emails) => {
       return emails.map((email) => {
         if (email.id === _email.id) {
@@ -78,11 +74,7 @@ const TableView: React.FC<Props> = (props) => {
       emails.forEach((email) => {
         if (email.checked) {
           deleteMessagesPromises.push(
-            ContractService.sendContract({
-              contract: 'PointEmail',
-              method: 'deleteMessage',
-              params: [email.encryptedMessageId, !email.deleted],
-            })
+            EmailService.deleteEmail(email.encryptedMessageId, !email.deleted)
           );
         }
       });

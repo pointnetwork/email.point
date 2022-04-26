@@ -3,8 +3,17 @@ import * as StorageService from '@services/StorageService';
 import * as WalletService from '@services/WalletService';
 
 export default async function EmailMapper(inputData: EmailInputData): Promise<Email> {
-  const [id, from, to, createdAt, encryptedMessageId, encryptedSymmetricObj, important, deleted] =
-    inputData;
+  const [
+    id,
+    from,
+    to,
+    createdAt,
+    encryptedMessageId,
+    encryptedSymmetricObj,
+    important,
+    deleted,
+    read,
+  ] = inputData;
 
   const [fromIdentity, toIdentity, encryptedData] = await Promise.all([
     IdentityService.ownerToIdentity(from),
@@ -37,6 +46,7 @@ export default async function EmailMapper(inputData: EmailInputData): Promise<Em
     message,
     important,
     deleted,
+    read,
     attachments,
   };
 }

@@ -10,6 +10,18 @@ const ENCRYPTED_CONTENT_USER_1 = 'ENCRYPTED_CONTENT_USER_1';
 const ENCRYPTED_ID_USER_2 = utils.formatBytes32String('ENCRYPTED_ID_USER_2');
 const ENCRYPTED_CONTENT_USER_2 = 'ENCRYPTED_CONTENT_USER_2';
 
+type EmailWithMetaData = {
+  id: number;
+  from: string;
+  to: string;
+  createdAt: number;
+  encryptedMessageId: string;
+  encryptedSymmetricObj: string;
+  important: boolean;
+  deleted: boolean;
+  read: boolean;
+};
+
 describe('PointEmail', () => {
   let contract: Contract;
   let owner: SignerWithAddress;
@@ -52,6 +64,63 @@ describe('PointEmail', () => {
       expect(email.id.toString()).to.equal('1');
       expect(email.encryptedMessageId).to.equal(ENCRYPTED_ID_USER_2);
       expect(email.encryptedSymmetricObj).to.equal(ENCRYPTED_CONTENT_USER_2);
+    });
+
+    describe('email read metadata', () => {
+      it(`should be marked as read for sender`, async () => {
+        const emailWithMetaData = await contract.connect(user1).getMessageById(ENCRYPTED_ID_USER_1);
+        expect(emailWithMetaData.read).to.equal(true);
+      });
+
+      it(`should be marked as not read for recipient`, async () => {
+        const emailWithMetaData = await contract.connect(user2).getMessageById(ENCRYPTED_ID_USER_2);
+        expect(emailWithMetaData.read).to.equal(false);
+      });
+
+      describe('if user2 mark the email as read', () => {
+        before(async () => {
+          const tx = await contract.connect(user2).markAsRead(ENCRYPTED_ID_USER_2, true);
+          await tx.wait();
+        });
+
+        it(`email should be marked as read`, async () => {
+          const emailWithMetaData = await contract
+            .connect(user2)
+            .getMessageById(ENCRYPTED_ID_USER_2);
+          expect(emailWithMetaData.read).to.equal(true);
+        });
+      });
+    });
+
+    describe('email important metadata', () => {
+      before(async () => {
+        const tx = await contract.connect(user2).markAsImportant(ENCRYPTED_ID_USER_1, true);
+        await tx.wait();
+      });
+
+      it(`email should be in user's /important tab`, async () => {
+        const [importantEmail] = await contract.connect(user2).getImportantEmails();
+        expect(importantEmail.encryptedMessageId).to.equal(ENCRYPTED_ID_USER_2);
+      });
+
+      describe('and the user unmark the email as important', () => {
+        before(async () => {
+          const tx = await contract.connect(user2).markAsImportant(ENCRYPTED_ID_USER_2, false);
+          await tx.wait();
+        });
+
+        it(`should dissapear from the /important tab`, async () => {
+          const importantEmails: EmailWithMetaData[] = await contract
+            .connect(user2)
+            .getImportantEmails();
+
+          expect(
+            importantEmails.some(
+              ({ encryptedMessageId }) => encryptedMessageId === ENCRYPTED_ID_USER_2
+            )
+          ).to.equal(false);
+        });
+      });
     });
 
     describe('if the user2 deletes the email', () => {
