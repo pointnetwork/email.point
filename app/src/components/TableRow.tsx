@@ -52,7 +52,7 @@ const TableRow: React.FC<TableRowProps> = (props) => {
   }
 
   function openEmail() {
-    window.location.href = `/show?id=${email.encryptedMessageId}`;
+    window.location.href = `/show?id=${email.id}`;
   }
 
   return (

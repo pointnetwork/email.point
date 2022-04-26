@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
- * @dev Implementation of email.point smart contract.
+ * @dev Implementation of email.point's smart contract.
  */
 
 contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
@@ -43,12 +43,12 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     }
 
     // Email mappings
-    mapping(bytes32 => Email) public encryptedMessageIdToEmail;
-    mapping(address => Email[]) public toEmails;
-    mapping(address => Email[]) public fromEmails;
+    mapping(uint256 => Email) private emailIdToEmail;
+    mapping(address => Email[]) private toEmails;
+    mapping(address => Email[]) private fromEmails;
 
     mapping(uint256 => mapping(address => EmailUserMetaData))
-        public emailUserMetadata;
+        private emailUserMetadata;
 
     event EmailSent(
         uint256 id,
@@ -59,51 +59,54 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     event EmailDeleted(
         address indexed user,
-        bytes32 indexed id,
+        uint256 indexed id,
         bool deleted,
         uint256 timestamp
     );
 
     event EmailMarkedAsImportant(
         address indexed user,
-        bytes32 indexed id,
+        uint256 indexed id,
         bool important,
         uint256 timestamp
     );
 
     event EmailRead(
         address indexed user,
-        bytes32 indexed id,
+        uint256 indexed id,
         bool read,
         uint256 timestamp
     );
 
-    modifier onlySenderOrRecipient(bytes32 _encryptedMessageId) {
+    modifier onlySenderOrRecipient(uint256 _emailId) {
         require(
-            encryptedMessageIdToEmail[_encryptedMessageId].from == msg.sender ||
-                encryptedMessageIdToEmail[_encryptedMessageId].to == msg.sender,
+            emailIdToEmail[_emailId].from == msg.sender ||
+                emailIdToEmail[_emailId].to == msg.sender,
             "Permission Denied"
         );
         _;
     }
 
-    modifier onlyRecipient(bytes32 _encryptedMessageId) {
-        require(
-            encryptedMessageIdToEmail[_encryptedMessageId].to == msg.sender,
-            "Only Recipient"
-        );
+    modifier onlyRecipient(uint256 _emailId) {
+        require(emailIdToEmail[_emailId].to == msg.sender, "Only Recipient");
         _;
     }
 
     /**
+     * @notice This function should be used to send a new email to a recipient
      * @dev Send a new email to a recipient
+     * @param _to - The recipient address
+     * @param _fromEncryptedMessageId - The stored message id for the sender
+     * @param _fromEncryptedSymmetricObj - The encryption settings for the sender
+     * @param _toEncryptedMessageId - The stored message id for the sender
+     * @param _toEncryptedSymmetricObj - The encryption settings for the sender
      */
     function send(
-        address to,
-        bytes32 fromEncryptedMessageId,
-        string memory fromEncryptedSymmetricObj,
-        bytes32 toEncryptedMessageId,
-        string memory toEncryptedSymmetricObj
+        address _to,
+        bytes32 _fromEncryptedMessageId,
+        string memory _fromEncryptedSymmetricObj,
+        bytes32 _toEncryptedMessageId,
+        string memory _toEncryptedSymmetricObj
     ) external {
         _emailIds.increment();
         uint256 newEmailId = _emailIds.current();
@@ -111,21 +114,19 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         Email memory _email = Email(
             newEmailId,
             msg.sender,
-            to,
+            _to,
             block.timestamp
         );
 
-        // add mapping from encrypted message id to the email id;
-        encryptedMessageIdToEmail[fromEncryptedMessageId] = _email;
-        encryptedMessageIdToEmail[toEncryptedMessageId] = _email;
+        emailIdToEmail[newEmailId] = _email;
 
         // add email to mappings
-        toEmails[to].push(_email);
+        toEmails[_to].push(_email);
         fromEmails[msg.sender].push(_email);
 
         EmailUserMetaData memory _fromMetadata = EmailUserMetaData(
-            fromEncryptedMessageId,
-            fromEncryptedSymmetricObj,
+            _fromEncryptedMessageId,
+            _fromEncryptedSymmetricObj,
             false,
             false,
             true // sender has read the email
@@ -133,88 +134,111 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         emailUserMetadata[newEmailId][msg.sender] = _fromMetadata;
 
         EmailUserMetaData memory _toMetadata = EmailUserMetaData(
-            toEncryptedMessageId,
-            toEncryptedSymmetricObj,
+            _toEncryptedMessageId,
+            _toEncryptedSymmetricObj,
             false,
             false,
             false
         );
-        emailUserMetadata[newEmailId][to] = _toMetadata;
+        emailUserMetadata[newEmailId][_to] = _toMetadata;
 
-        emit EmailSent(newEmailId, msg.sender, to, block.timestamp);
+        emit EmailSent(newEmailId, msg.sender, _to, block.timestamp);
     }
 
-    function getAllEmailsByFromAddress(address from)
+    /**
+     * @notice This function returns all non deleted emails sent by an address
+     * @dev Get all emails sent by an address
+     * @param _from - The user address
+     */
+    function getAllEmailsByFromAddress(address _from)
         external
         view
         returns (EmailWithUserMetaData[] memory)
     {
-        return _filterDeletedEmails(fromEmails[from], from);
+        return _filterDeletedEmails(fromEmails[_from], _from);
     }
 
-    function getAllEmailsByToAddress(address to)
+    /**
+     * @notice This function returns all non deleted emails send to an address
+     * @dev Get all emails sent to an address
+     * @param _to - The user address
+     */
+    function getAllEmailsByToAddress(address _to)
         external
         view
         returns (EmailWithUserMetaData[] memory)
     {
-        return _filterDeletedEmails(toEmails[to], to);
+        return _filterDeletedEmails(toEmails[_to], _to);
     }
 
-    function getMessageById(bytes32 encryptedMessageId)
+    /**
+     * @notice Get an email by id (user metadata included)
+     * @dev Get an email by id (user metadata included)
+     * @param _emailId - The message id
+     */
+    function getEmailById(uint256 _emailId)
         external
         view
         returns (EmailWithUserMetaData memory)
     {
-        return
-            _getEmailWithMetadata(
-                encryptedMessageIdToEmail[encryptedMessageId],
-                msg.sender
-            );
+        return _getEmailWithMetadata(emailIdToEmail[_emailId], msg.sender);
     }
 
-    function deleteMessage(bytes32 _encryptedMessageId, bool _deleted)
+    /**
+     * @notice Mark an email as deleted by id
+     * @dev Mark an email as deleted by id
+     * @param _emailId - The email id
+     * @param _deleted - A boolean that represents if the email was deleted
+     */
+    function deleteEmail(uint256 _emailId, bool _deleted)
         external
-        onlySenderOrRecipient(_encryptedMessageId)
+        onlySenderOrRecipient(_emailId)
     {
-        emailUserMetadata[encryptedMessageIdToEmail[_encryptedMessageId].id][
-            msg.sender
-        ].deleted = _deleted;
+        emailUserMetadata[_emailId][msg.sender].deleted = _deleted;
 
-        emit EmailDeleted(
-            msg.sender,
-            _encryptedMessageId,
-            _deleted,
-            block.timestamp
-        );
+        emit EmailDeleted(msg.sender, _emailId, _deleted, block.timestamp);
     }
 
-    function markAsImportant(bytes32 _encryptedMessageId, bool _important)
+    /**
+     * @notice Mark an email as important by id
+     * @dev Mark an email as important by id
+     * @param _emailId - The email id
+     * @param _important - A boolean that represents if the email was marked as important
+     */
+    function markAsImportant(uint256 _emailId, bool _important)
         external
-        onlySenderOrRecipient(_encryptedMessageId)
+        onlySenderOrRecipient(_emailId)
     {
-        emailUserMetadata[encryptedMessageIdToEmail[_encryptedMessageId].id][
-            msg.sender
-        ].important = _important;
+        emailUserMetadata[_emailId][msg.sender].important = _important;
 
         emit EmailMarkedAsImportant(
             msg.sender,
-            _encryptedMessageId,
+            _emailId,
             _important,
             block.timestamp
         );
     }
 
-    function markAsRead(bytes32 _encryptedMessageId, bool _read)
+    /**
+     * @notice Mark an email as read by id
+     * @dev Mark an email as read by id
+     * @param _emailId - The email id
+     * @param _read - A boolean that represents if the email was read
+     */
+    function markAsRead(uint256 _emailId, bool _read)
         external
-        onlyRecipient(_encryptedMessageId)
+        onlyRecipient(_emailId)
     {
-        emailUserMetadata[encryptedMessageIdToEmail[_encryptedMessageId].id][
-            msg.sender
-        ].read = _read;
+        emailUserMetadata[_emailId][msg.sender].read = _read;
 
-        emit EmailRead(msg.sender, _encryptedMessageId, _read, block.timestamp);
+        emit EmailRead(msg.sender, _emailId, _read, block.timestamp);
     }
 
+    /**
+     * @notice Get all the emails marked as important received by an user
+     * @dev Get all the emails marked as important received by an user
+     * @return A list of important emails with user's metadata
+     */
     function getImportantEmails()
         external
         view
@@ -252,6 +276,11 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         return result;
     }
 
+    /**
+     * @notice Get all the emails marked as deleted by an user
+     * @dev Get all the emails marked as deleted by an user
+     * @return A list of deleted emails with user's metadata
+     */
     function getDeletedEmails()
         external
         view

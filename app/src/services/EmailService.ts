@@ -2,46 +2,40 @@ import * as ContractService from './ContractService';
 
 import EmailMapper from '@mappers/Email';
 
-export async function getEmailData(messageId: string): Promise<Email> {
+export async function getEmailData(emailId: string): Promise<Email> {
   const rawEmail: EmailInputData = await ContractService.callContract({
     contract: 'PointEmail',
-    method: 'getMessageById',
-    params: [messageId],
+    method: 'getEmailById',
+    params: [emailId],
   });
 
   const email = await EmailMapper(rawEmail);
   return email;
 }
 
-export async function deleteEmail(
-  encryptedMessageId: string,
-  deleted: boolean = true
-): Promise<void> {
+export async function deleteEmail(emailId: number, deleted: boolean = true): Promise<void> {
   ContractService.sendContract({
     contract: 'PointEmail',
-    method: 'deleteMessage',
-    params: [encryptedMessageId, deleted],
+    method: 'deleteEmail',
+    params: [emailId, deleted],
   });
 }
 
 export async function markEmailAsImportant(
-  encryptedMessageId: string,
+  emailId: number,
   important: boolean = true
 ): Promise<void> {
   await ContractService.sendContract({
     contract: 'PointEmail',
     method: 'markAsImportant',
-    params: [encryptedMessageId, important],
+    params: [emailId, important],
   });
 }
 
-export async function markEmailAsRead(
-  encryptedMessageId: string,
-  read: boolean = true
-): Promise<void> {
+export async function markEmailAsRead(emailId: number, read: boolean = true): Promise<void> {
   await ContractService.sendContract({
     contract: 'PointEmail',
     method: 'markAsRead',
-    params: [encryptedMessageId, read],
+    params: [emailId, read],
   });
 }

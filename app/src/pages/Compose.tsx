@@ -100,9 +100,9 @@ const Compose: React.FC<{}> = () => {
     setAttachments([]);
   }
 
-  async function setReplyEmailData(replyToMessageId: string) {
+  async function setReplyEmailData(replyToEmailId: string) {
     try {
-      const replyToEmail = await getEmailData(replyToMessageId);
+      const replyToEmail = await getEmailData(replyToEmailId);
       setToIdentity(replyToEmail.fromIdentity!);
       setSubject(`RE: ${replyToEmail.subject!}`);
       setMessage(
@@ -116,9 +116,11 @@ const Compose: React.FC<{}> = () => {
       }, 1);
     } catch (error) {
       console.error(error);
-      uiActions.showErrorNotification({
-        message: 'Something went wrong',
-      });
+      dispatch(
+        uiActions.showErrorNotification({
+          message: 'Something went wrong',
+        })
+      );
     }
   }
 
@@ -279,9 +281,11 @@ const Compose: React.FC<{}> = () => {
     }
 
     if (attachment.size > FILE_MAX_SIZE) {
-      uiActions.showErrorNotification({
-        message: 'File is too big',
-      });
+      dispatch(
+        uiActions.showErrorNotification({
+          message: 'File is too big',
+        })
+      );
       return;
     }
 
