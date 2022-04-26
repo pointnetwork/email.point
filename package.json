@@ -4,7 +4,6 @@
   "scripts": {
     "build": "cd app && tsc && npx vite build",
     "app:dev": "cd app && npx vite",
-    "app:install": "cd app && npm i",
     "app:lint": "cd app && eslint",
     "app:build": "cd app && tsc && npx vite build",
     "app:preview": "cd app && npx vite preview",
@@ -14,8 +13,8 @@
     "app:coverage:watch": "cd app && npx jest --watch --coverage",
     "contract:test": "hardhat test ./test/PointEmail.test.ts",
     "contract:test:watch": "hardhat watch test",
-    "ci:contract": "npm i && npm run contract:test",
-    "ci:app": "npm run app:install && npm run app:test && npm run app:lint && npm run app:build"
+    "ci:contract": "npm run contract:test",
+    "ci:app": "npm run app:test && npm run app:lint && npm run app:build"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.5.0",

@@ -26,5 +26,11 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-    - run: npm run ci:contract
-    - run: npm run ci:app
+    - name: install yarn
+      run: npm install -g yarn
+    - name: install dependencies
+      run: yarn install && cd ./app && yarn install
+    - name: contract verification
+      run: yarn ci:contract
+    - name: app verification
+      run: yarn ci:app
