@@ -7,6 +7,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
+import "hardhat/console.sol";
+
 contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using Counters for Counters.Counter;
     Counters.Counter internal _emailIds;
@@ -14,76 +16,82 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     struct Email {
         uint256 id;
         address from;
-        address to;
+        address[] to;
+        bytes32 encryptedMessageId;
         uint256 createdAt;
     }
 
     struct EmailUserMetaData {
-        bytes32 encryptedMessageId;
         string encryptedSymmetricObj;
         bool important;
         bool deleted;
+        bool read;
     }
 
     struct EmailWithUserMetaData {
         uint256 id;
         address from;
-        address to;
-        uint256 createdAt;
+        address[] to;
         bytes32 encryptedMessageId;
+        uint256 createdAt;
         string encryptedSymmetricObj;
         bool important;
         bool deleted;
+        bool read;
     }
 
     // Email mappings
-    mapping(bytes32 => Email) public encryptedMessageIdToEmail;
-    mapping(address => Email[]) public toEmails;
-    mapping(address => Email[]) public fromEmails;
-    mapping(uint256 => mapping(address => EmailUserMetaData)) public emailUserMetadata;
+    mapping(uint256 => bytes32) private emailIdToEncryptedMessageId;
+    mapping(bytes32 => Email) private encryptedMessageIdToEmail;
+    mapping(address => Email[]) private toEmails;
+    mapping(address => Email[]) private fromEmails;
+    mapping(address => mapping(uint256 => EmailUserMetaData)) private emailUserMetadata;
 
-    event StateChange(
-        uint256 id,
+    event EmailSent(
+        uint256 indexed id,
         address indexed from,
-        address indexed to,
-        uint256 indexed date
+        address[] to,
+        uint256 indexed timestamp
     );
 
     event EmailDeleted(
         address indexed user,
-        bytes32 indexed id,
+        uint256 indexed id,
+        bool indexed deleted,
         uint256 timestamp
     );
 
     event EmailMarkedAsImportant(
         address indexed user,
-        bytes32 indexed id,
+        uint256 indexed id,
+        bool indexed important,
         uint256 timestamp
     );
 
-    modifier onlySenderOrRecipient(bytes32 _encryptedMessageId) {
+    event EmailRead(
+        address indexed user,
+        uint256 indexed id,
+        bool indexed read,
+        uint256 timestamp
+    );
+
+    modifier onlySenderOrRecipient(uint256 _emailId) {
         require(
-            encryptedMessageIdToEmail[_encryptedMessageId].from == msg.sender ||
-                encryptedMessageIdToEmail[_encryptedMessageId].to == msg.sender,
+            bytes(emailUserMetadata[msg.sender][_emailId].encryptedSymmetricObj).length !=
+                0,
             "Permission Denied"
         );
         _;
     }
 
-    function initialize() public initializer {
-        __Ownable_init();
-        __UUPSUpgradeable_init();
-    }
-
-    function _authorizeUpgrade(address) internal override onlyOwner {}
-
     function send(
-        address to,
-        bytes32 fromEncryptedMessageId,
         string memory fromEncryptedSymmetricObj,
-        bytes32 toEncryptedMessageId,
-        string memory toEncryptedSymmetricObj
+        address[] memory to,
+        string[] memory encryptedSymmetricObjs,
+        bytes32 encryptedMessageId
     ) external {
+        require(to.length == encryptedSymmetricObjs.length, "Invalid parameters");
+
         _emailIds.increment();
         uint256 newEmailId = _emailIds.current();
 
@@ -91,89 +99,47 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             newEmailId,
             msg.sender,
             to,
+            encryptedMessageId,
             block.timestamp
         );
 
-        // add mapping from encrypted message id to the email id;
-        encryptedMessageIdToEmail[fromEncryptedMessageId] = _email;
-        encryptedMessageIdToEmail[toEncryptedMessageId] = _email;
+        _saveUserEmailMetadata(newEmailId, msg.sender, fromEncryptedSymmetricObj);
 
-        // add email to mappings
-        toEmails[to].push(_email);
         fromEmails[msg.sender].push(_email);
 
-        EmailUserMetaData memory _fromMetadata = EmailUserMetaData(
-            fromEncryptedMessageId,
-            fromEncryptedSymmetricObj,
-            false,
-            false
-        );
-        emailUserMetadata[newEmailId][msg.sender] = _fromMetadata;
-
-        EmailUserMetaData memory _toMetadata = EmailUserMetaData(
-            toEncryptedMessageId,
-            toEncryptedSymmetricObj,
-            false,
-            false
-        );
-        emailUserMetadata[newEmailId][to] = _toMetadata;
-
-        emit StateChange(newEmailId, msg.sender, to, block.timestamp);
-    }
-
-    function _getEmailWithMetadata(Email memory _email, address _user) private view returns (EmailWithUserMetaData memory) {
-        EmailUserMetaData memory emailMetaData = emailUserMetadata[_email.id][
-            _user
-        ];
-        EmailWithUserMetaData memory emailWithMetadata = EmailWithUserMetaData(
-            _email.id,
-            _email.from,
-            _email.to,
-            _email.createdAt,
-            emailMetaData.encryptedMessageId,
-            emailMetaData.encryptedSymmetricObj,
-            emailMetaData.important,
-            emailMetaData.deleted
-        );
-        return emailWithMetadata;
-    }
-
-    function _filterDeletedEmails(Email[] memory _emails, address _user) private view returns (EmailWithUserMetaData[] memory) {
-        uint256 maxEmailsQty = _emails.length;
-
-        EmailWithUserMetaData[] memory temporary = new EmailWithUserMetaData[](maxEmailsQty);
-
-        uint256 counter = 0;
-
-        for (uint256 i = 0; i < maxEmailsQty; i++) {
-            Email memory email = _emails[i];
-            EmailWithUserMetaData memory emailWithUserMetaData = _getEmailWithMetadata(email, _user);
-            if (!emailWithUserMetaData.deleted) {
-                temporary[counter] = emailWithUserMetaData;
-                counter++;
-            }
+        for (uint256 i = 0; i < to.length; i++) {
+            _saveUserEmailMetadata(newEmailId, to[i], encryptedSymmetricObjs[i]);
+            toEmails[to[i]].push(_email);
         }
 
-        EmailWithUserMetaData[] memory result = new EmailWithUserMetaData[](counter);
-        for (uint256 i = 0; i < counter; i++) {
-            result[i] = temporary[i];
-        }
-        return result;
-    } 
-    function _getEmailsWithUserMetaData(Email[] memory _emails, address _user)
-        private
+        encryptedMessageIdToEmail[encryptedMessageId] = _email;
+        emailIdToEncryptedMessageId[newEmailId] = encryptedMessageId;
+
+        emit EmailSent(newEmailId, msg.sender, to, block.timestamp);
+    }
+
+    function getEmailById(uint256 _emailId)
+        external
         view
-        returns (EmailWithUserMetaData[] memory)
+        returns (EmailWithUserMetaData memory)
     {
-        EmailWithUserMetaData[] memory emailsWithUserMetaData = new EmailWithUserMetaData[](
-            _emails.length
-        );
-        for (uint256 i = 0; i < _emails.length; i++) {
-            Email memory email = _emails[i];
-            emailsWithUserMetaData[i] = _getEmailWithMetadata(email, _user);
-        }
+        return
+            _getEmailWithMetadata(
+                encryptedMessageIdToEmail[emailIdToEncryptedMessageId[_emailId]],
+                msg.sender
+            );
+    }
 
-        return emailsWithUserMetaData;
+    function getEmailByEncryptedMessageId(bytes32 _encryptedMessageId)
+        external
+        view
+        returns (EmailWithUserMetaData memory)
+    {
+        return
+            _getEmailWithMetadata(
+                encryptedMessageIdToEmail[_encryptedMessageId],
+                msg.sender
+            );
     }
 
     function getAllEmailsByFromAddress(address from)
@@ -192,46 +158,47 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         return _filterDeletedEmails(toEmails[to], to);
     }
 
-    function getMessageById(bytes32 encryptedMessageId)
+    function deleteMessage(uint256 _emailId, bool _deleted)
         external
-        view
-        returns (EmailWithUserMetaData memory)
+        onlySenderOrRecipient(_emailId)
     {
-        return _getEmailWithMetadata(encryptedMessageIdToEmail[encryptedMessageId], msg.sender);
+        emailUserMetadata[msg.sender][_emailId].deleted = _deleted;
+
+        emit EmailDeleted(msg.sender, _emailId, _deleted, block.timestamp);
     }
 
-    function deleteMessage(bytes32 _encryptedMessageId, bool _deleted)
+    function markAsImportant(uint256 _emailId, bool _important)
         external
-        onlySenderOrRecipient(_encryptedMessageId)
+        onlySenderOrRecipient(_emailId)
     {
-        
-        emailUserMetadata[encryptedMessageIdToEmail[_encryptedMessageId].id][msg.sender].deleted = _deleted; 
+        emailUserMetadata[msg.sender][_emailId].important = _important;
 
-        emit EmailDeleted(msg.sender, _encryptedMessageId, block.timestamp);
+        emit EmailMarkedAsImportant(msg.sender, _emailId, _important, block.timestamp);
     }
 
-    function markAsImportant(bytes32 _encryptedMessageId, bool _important)
+    function markAsRead(uint256 _emailId, bool _read)
         external
-        onlySenderOrRecipient(_encryptedMessageId)
+        onlySenderOrRecipient(_emailId)
     {
-        emailUserMetadata[encryptedMessageIdToEmail[_encryptedMessageId].id][msg.sender].important = _important;
+        emailUserMetadata[msg.sender][_emailId].read = _read;
 
-        emit EmailMarkedAsImportant(
-            msg.sender,
-            _encryptedMessageId,
-            block.timestamp
-        );
+        emit EmailRead(msg.sender, _emailId, _read, block.timestamp);
     }
 
     function getImportantEmails() external view returns (EmailWithUserMetaData[] memory) {
         uint256 maxEmailsQty = toEmails[msg.sender].length;
-        EmailWithUserMetaData[] memory temporary = new EmailWithUserMetaData[](maxEmailsQty);
+        EmailWithUserMetaData[] memory temporary = new EmailWithUserMetaData[](
+            maxEmailsQty
+        );
 
         uint256 counter = 0;
 
         for (uint256 i = 0; i < maxEmailsQty; i++) {
             Email memory email = toEmails[msg.sender][i];
-            EmailWithUserMetaData memory emailsWithUserMetaData = _getEmailWithMetadata(email, msg.sender);
+            EmailWithUserMetaData memory emailsWithUserMetaData = _getEmailWithMetadata(
+                email,
+                msg.sender
+            );
             if (emailsWithUserMetaData.important && !emailsWithUserMetaData.deleted) {
                 temporary[counter] = emailsWithUserMetaData;
                 counter++;
@@ -243,17 +210,22 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             result[i] = temporary[i];
         }
         return result;
-    } 
+    }
 
     function getDeletedEmails() external view returns (EmailWithUserMetaData[] memory) {
         uint256 maxEmailsQty = toEmails[msg.sender].length;
-        EmailWithUserMetaData[] memory temporary = new EmailWithUserMetaData[](maxEmailsQty);
+        EmailWithUserMetaData[] memory temporary = new EmailWithUserMetaData[](
+            maxEmailsQty
+        );
 
         uint256 counter = 0;
 
         for (uint256 i = 0; i < maxEmailsQty; i++) {
             Email memory email = toEmails[msg.sender][i];
-            EmailWithUserMetaData memory emailsWithUserMetaData = _getEmailWithMetadata(email, msg.sender);
+            EmailWithUserMetaData memory emailsWithUserMetaData = _getEmailWithMetadata(
+                email,
+                msg.sender
+            );
             if (emailsWithUserMetaData.deleted) {
                 temporary[counter] = emailsWithUserMetaData;
                 counter++;
@@ -265,5 +237,94 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             result[i] = temporary[i];
         }
         return result;
-    } 
+    }
+
+    function initialize() public initializer {
+        __Ownable_init();
+        __UUPSUpgradeable_init();
+    }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    function _getEmailWithMetadata(Email memory _email, address _user)
+        private
+        view
+        returns (EmailWithUserMetaData memory)
+    {
+        EmailUserMetaData memory emailMetaData = emailUserMetadata[_user][_email.id];
+        EmailWithUserMetaData memory emailWithMetadata = EmailWithUserMetaData(
+            _email.id,
+            _email.from,
+            _email.to,
+            _email.encryptedMessageId,
+            _email.createdAt,
+            emailMetaData.encryptedSymmetricObj,
+            emailMetaData.important,
+            emailMetaData.deleted,
+            emailMetaData.read
+        );
+        return emailWithMetadata;
+    }
+
+    function _filterDeletedEmails(Email[] memory _emails, address _user)
+        private
+        view
+        returns (EmailWithUserMetaData[] memory)
+    {
+        uint256 maxEmailsQty = _emails.length;
+
+        EmailWithUserMetaData[] memory temporary = new EmailWithUserMetaData[](
+            maxEmailsQty
+        );
+
+        uint256 counter = 0;
+
+        for (uint256 i = 0; i < maxEmailsQty; i++) {
+            Email memory email = _emails[i];
+            EmailWithUserMetaData memory emailWithUserMetaData = _getEmailWithMetadata(
+                email,
+                _user
+            );
+            if (!emailWithUserMetaData.deleted) {
+                temporary[counter] = emailWithUserMetaData;
+                counter++;
+            }
+        }
+
+        EmailWithUserMetaData[] memory result = new EmailWithUserMetaData[](counter);
+        for (uint256 i = 0; i < counter; i++) {
+            result[i] = temporary[i];
+        }
+        return result;
+    }
+
+    function _getEmailsWithUserMetaData(Email[] memory _emails, address _user)
+        private
+        view
+        returns (EmailWithUserMetaData[] memory)
+    {
+        EmailWithUserMetaData[]
+            memory emailsWithUserMetaData = new EmailWithUserMetaData[](_emails.length);
+        for (uint256 i = 0; i < _emails.length; i++) {
+            Email memory email = _emails[i];
+            emailsWithUserMetaData[i] = _getEmailWithMetadata(email, _user);
+        }
+
+        return emailsWithUserMetaData;
+    }
+
+    function _saveUserEmailMetadata(
+        uint256 _emailId,
+        address _user,
+        string memory _encryptedSymmetricObj
+    ) private {
+        EmailUserMetaData memory _metaData = EmailUserMetaData(
+            _encryptedSymmetricObj,
+            false,
+            false,
+            false
+        );
+
+        emailUserMetadata[_user][_emailId] = _metaData;
+    }
 }

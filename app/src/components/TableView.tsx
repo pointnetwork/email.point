@@ -105,6 +105,7 @@ const TableView: React.FC<Props> = (props) => {
     setLoading(true);
     getTableItems()
       .then(async (_emails) => {
+        console.log(_emails);
         const emails = await Promise.all(_emails.map(EmailMapper));
         emails.sort(
           ({ createdAt: ca1 }: { createdAt: number }, { createdAt: ca2 }: { createdAt: number }) =>

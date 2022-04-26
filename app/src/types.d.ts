@@ -14,13 +14,13 @@ type Address = string;
 
 type Identity = string;
 
-type EmailInputData = [number, string, string, number, string, string, boolean, boolean, string];
+type EmailInputData = [number, string, string[], string, number, string, boolean, boolean, boolean];
 
 type Email = {
   id: number;
   from: string;
   fromIdentity?: string;
-  to: string;
+  to: string[];
   toIdentity?: string;
   subject?: string;
   message?: string;
@@ -30,5 +30,6 @@ type Email = {
   checked?: boolean;
   important?: boolean;
   deleted?: boolean;
+  read?: boolean;
   attachments?: Array;
 };

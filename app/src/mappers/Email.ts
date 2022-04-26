@@ -1,18 +1,31 @@
 import * as IdentityService from '@services/IdentityService';
 import * as StorageService from '@services/StorageService';
-import * as WalletService from '@services/WalletService';
+import * as EncryptionService from '@services/EncryptionService';
 
 export default async function EmailMapper(inputData: EmailInputData): Promise<Email> {
-  const [id, from, to, createdAt, encryptedMessageId, encryptedSymmetricObj, important, deleted] =
-    inputData;
+  const [
+    id,
+    from,
+    to,
+    encryptedMessageId,
+    createdAt,
+    encryptedSymmetricObj,
+    important,
+    deleted,
+    read,
+  ] = inputData;
 
-  const [fromIdentity, toIdentity, encryptedData] = await Promise.all([
-    IdentityService.ownerToIdentity(from),
+  const [fromIdentity, encryptedData] = await Promise.all([
     IdentityService.ownerToIdentity(from),
     StorageService.getString(encryptedMessageId),
   ]);
 
-  const decryptedMessage = await WalletService.decryptData(encryptedData, encryptedSymmetricObj);
+  console.log(encryptedData);
+
+  const { decryptedMessage } = await EncryptionService.decryptStringMulti(
+    encryptedData,
+    encryptedSymmetricObj
+  );
 
   let message;
   let subject;
@@ -29,7 +42,6 @@ export default async function EmailMapper(inputData: EmailInputData): Promise<Em
     from,
     fromIdentity,
     to,
-    toIdentity,
     encryptedMessageId,
     encryptedSymmetricObj,
     createdAt: createdAt * 1000,
@@ -37,6 +49,7 @@ export default async function EmailMapper(inputData: EmailInputData): Promise<Em
     message,
     important,
     deleted,
+    read,
     attachments,
   };
 }

@@ -12,6 +12,7 @@ import * as ContractService from '@services/ContractService';
 import * as IdentityService from '@services/IdentityService';
 import * as StorageService from '@services/StorageService';
 import * as WalletService from '@services/WalletService';
+import * as EncryptionService from '@services/EncryptionService';
 
 import { actions as uiActions } from '@store/modules/ui';
 import { selectors as identitySelectors } from '@store/modules/identity';
@@ -61,7 +62,192 @@ const AttachmentBag: React.FC<{ attachment: File; onRemoveHandler: Function }> =
   );
 };
 
+const RecipientBag: React.FC<{ recipient: Identity; onRemoveHandler: Function }> = (props) => {
+  const { recipient, onRemoveHandler } = props;
+  return (
+    <div
+      className="
+        rounded
+        bg-red-200
+        py-1
+        px-2
+        text-sm
+        text-red-500
+        flex
+        flex-row
+        items-center
+        justify-center
+        m-1
+      "
+    >
+      <button type="button" onClick={() => onRemoveHandler(recipient)}>
+        <XCircleIcon className="w-6 h-6 mr-2" />
+      </button>
+      <span className="font-semibold">@{recipient}</span>
+    </div>
+  );
+};
+
+const RecipientsInput: React.FC<{
+  recipients: Identity[];
+  loading: boolean;
+  addRecipient: Function;
+  removeRecipient: Function;
+}> = (props) => {
+  const { recipients, loading, addRecipient, removeRecipient } = props;
+  const [identity, setIdentity] = useState<Identity>('');
+  const [validating, setValidating] = useState<boolean>(false);
+
+  const dispatch = useDispatch();
+
+  function onAddRecipientHandler(event: React.MouseEvent<HTMLElement>) {
+    if (validating) {
+      return;
+    }
+
+    if (identity === '') {
+      return;
+    }
+
+    setValidating(true);
+    IdentityService.identityToOwner(identity)
+      .then((owner) => {
+        setValidating(false);
+        if (owner === CONSTANTS.AddressZero) {
+          dispatch(
+            uiActions.showErrorNotification({
+              message: 'Invalid recipient identity.',
+            })
+          );
+          return;
+        }
+        addRecipient(identity);
+        setIdentity('');
+      })
+      .catch((error) => {
+        console.error(error);
+        dispatch(
+          uiActions.showErrorNotification({
+            message: 'Something went wrong',
+          })
+        );
+        setValidating(false);
+      });
+  }
+
+  function onRemoveRecipientHandler(event: React.MouseEvent<HTMLElement>) {
+    removeRecipient(identity);
+    setIdentity('');
+  }
+
+  function onIdentityChangeHandler(event: React.ChangeEvent<HTMLInputElement>) {
+    setIdentity(event.target.value);
+  }
+
+  return (
+    <label className="block text-sm mb-3">
+      <span className="text-gray-700 dark:text-gray-400 mb-2">To</span>
+      <div className="flex flex-col md:flex-row w-full">
+        <div className="relative text-gray-500 focus-within:text-green-600 dark:focus-within:text-green-400">
+          <input
+            disabled={!!loading || !!validating}
+            className="
+              block
+              pl-10
+              w-full
+              flex-1
+              border-2
+              rounded
+              text-sm
+              text-black
+              dark:text-gray-300
+              dark:border-gray-600
+              dark:bg-gray-700
+              focus:border-green-400
+              focus:outline-nonemb-5
+              focus:shadow-outline-green
+              dark:focus:shadow-outline-gray
+              form-input
+            "
+            value={identity}
+            onChange={onIdentityChangeHandler}
+            placeholder="Email Recipient Identity"
+          />
+          <div className="absolute inset-y-0 flex items-center ml-3 pointer-events-none">
+            <UserIcon className="w-5 h-6" />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onAddRecipientHandler}
+          disabled={!!loading || !!validating}
+          className="
+            rounded
+            border-1
+            bg-green-500
+            text-gray-100
+            px-10
+            py-2
+            mt-2
+            md:mt-0
+            sm:ml-0
+            md:ml-2
+          "
+        >
+          Add Recipient
+        </button>
+      </div>
+      {recipients.length ? (
+        <div className="text-sm flex flex-col mb-3 mt-3">
+          <span className="mb-1">Recipients:</span>
+          <div className="flex flex-row flex-wrap">
+            {recipients.map((recipient, index) => (
+              <RecipientBag
+                recipient={recipient}
+                key={index}
+                onRemoveHandler={onRemoveRecipientHandler}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        ''
+      )}
+    </label>
+  );
+};
+
 const FILE_MAX_SIZE = 1048576;
+
+async function encryptAndSaveData(
+  publicKey: string,
+  data: string
+): Promise<{ storedEncryptedMessageId: string; encryptedSymmetricObjJSON: string }> {
+  const { encryptedMessage, encryptedSymmetricObjJSON } = await WalletService.encryptData(
+    publicKey,
+    data
+  );
+  const storedEncryptedMessageId = await StorageService.putString(encryptedMessage);
+  return {
+    storedEncryptedMessageId,
+    encryptedSymmetricObjJSON,
+  };
+}
+
+async function encryptAndStoreStringMulti(
+  data: string,
+  publicKeys: string[]
+): Promise<{ storedEncryptedMessageId: string; encryptedSymmetricKeys: Record<string, string> }> {
+  const { encryptedMessage, encryptedSymmetricKeys } = await EncryptionService.encryptStringMulti(
+    data,
+    publicKeys
+  );
+  const storedEncryptedMessageId = await StorageService.putString(encryptedMessage);
+  return {
+    storedEncryptedMessageId,
+    encryptedSymmetricKeys,
+  };
+}
 
 const Compose: React.FC<{}> = () => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -71,19 +257,14 @@ const Compose: React.FC<{}> = () => {
   const dispatch = useDispatch();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const messageInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [searchParams] = useSearchParams();
 
-  const [toIdentity, setToIdentity] = useState<string>('');
+  const [recipients, setRecipients] = useState<Identity[]>([]);
   const [subject, setSubject] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [attachments, setAttachments] = useState<File[]>([]);
-
-  function toIdentityChangedHandler(event: React.ChangeEvent<HTMLInputElement>) {
-    setToIdentity(event.target.value);
-  }
 
   function subjectChangedHandler(event: React.ChangeEvent<HTMLInputElement>) {
     setSubject(event.target.value);
@@ -94,16 +275,33 @@ const Compose: React.FC<{}> = () => {
   }
 
   function cleanForm() {
-    setToIdentity('');
+    setRecipients([]);
     setSubject('');
     setMessage('');
     setAttachments([]);
   }
 
+  function addRecipient(recipient: Identity) {
+    setRecipients((_recipients) => {
+      const recipients = [..._recipients];
+      recipients.push(recipient);
+      return recipients;
+    });
+  }
+
+  function removeRecipient(recipient: Identity) {
+    setRecipients((_recipients) => {
+      const recipients = [..._recipients];
+      const index = recipients.indexOf(recipient);
+      recipients.splice(index, 1);
+      return recipients;
+    });
+  }
+
   async function setReplyEmailData(replyToMessageId: string) {
     try {
       const replyToEmail = await getEmailData(replyToMessageId);
-      setToIdentity(replyToEmail.fromIdentity!);
+      setRecipients([replyToEmail.fromIdentity!]);
       setSubject(`RE: ${replyToEmail.subject!}`);
       setMessage(
         `\n\n| On ${dayjs(replyToEmail.createdAt).format('MMMM DD, YYYY hh:mm')} <@${
@@ -116,9 +314,11 @@ const Compose: React.FC<{}> = () => {
       }, 1);
     } catch (error) {
       console.error(error);
-      uiActions.showErrorNotification({
-        message: 'Something went wrong',
-      });
+      dispatch(
+        uiActions.showErrorNotification({
+          message: 'Something went wrong',
+        })
+      );
     }
   }
 
@@ -126,12 +326,7 @@ const Compose: React.FC<{}> = () => {
     if (!identity) {
       return;
     }
-    const {
-      replyTo,
-      toIdentity = '',
-      subject = '',
-      message = '',
-    } = Object.fromEntries([...searchParams]);
+    const { replyTo, subject = '', message = '' } = Object.fromEntries([...searchParams]);
     if (replyTo) {
       // get email data and autocomplete the form
       setReplyEmailData(replyTo)
@@ -144,8 +339,6 @@ const Compose: React.FC<{}> = () => {
         });
       return;
     }
-    // autocomplete from query params
-    setToIdentity(toIdentity);
     setSubject(subject);
     setMessage(message);
     setLoading(false);
@@ -179,35 +372,43 @@ const Compose: React.FC<{}> = () => {
       });
   }
 
-  async function encryptAndSaveData(
-    publicKey: string,
-    data: string
-  ): Promise<{ storedEncryptedMessageId: string; encryptedSymmetricObjJSON: string }> {
-    const { encryptedMessage, encryptedSymmetricObjJSON } = await WalletService.encryptData(
-      publicKey,
-      data
-    );
-    const storedEncryptedMessageId = await StorageService.putString(encryptedMessage);
-    return {
-      storedEncryptedMessageId,
-      encryptedSymmetricObjJSON,
-    };
-  }
-
-  /*
-    the email must be encrypted twice
-    1. recipient public key
-    2. sender private key
-  */
   async function send() {
-    const [toOwner, toPublicKey] = await Promise.all([
-      IdentityService.identityToOwner(toIdentity),
-      IdentityService.publicKeyByIdentity(toIdentity),
-    ]);
-
-    if (toOwner === CONSTANTS.AddressZero) {
+    if (!recipients.length) {
       throw ERRORS.INVALID_RECIPIENT;
     }
+
+    const recipientsData = await Promise.all(
+      recipients.map(async (identity) => {
+        const [owner, publicKey] = await Promise.all([
+          IdentityService.identityToOwner(identity),
+          IdentityService.publicKeyByIdentity(identity),
+        ]);
+        return { identity, owner, publicKey };
+      })
+    );
+
+    const { storedEncryptedMessageId, encryptedSymmetricKeys } = await encryptAndStoreStringMulti(
+      JSON.stringify({
+        subject,
+        message,
+      }),
+      [...recipientsData.map(({ publicKey }) => publicKey), publicKey!]
+    );
+
+    const recipientsDataWithoutSender = recipientsData.filter(({ owner }) => owner !== identity);
+
+    await ContractService.sendContract({
+      contract: 'PointEmail',
+      method: 'send',
+      params: [
+        encryptedSymmetricKeys[publicKey!], // sender encryption data
+        recipientsDataWithoutSender.map(({ owner }) => owner), // recipients addresses
+        recipientsDataWithoutSender.map(({ publicKey }) => encryptedSymmetricKeys[publicKey]), // encryption data for each recipient
+        storedEncryptedMessageId, // email stored message id
+      ],
+    });
+
+    /*
 
     async function getEncryptedAttachments(attachments: File[], publickKey: string) {
       const encryptedAttachmentsData = await Promise.all(
@@ -240,6 +441,9 @@ const Compose: React.FC<{}> = () => {
       ]);
     }
 
+    */
+
+    /*
     const [fromEncryptedData, toEncryptedData] = await Promise.all([
       encryptAndSaveData(
         publicKey!,
@@ -270,6 +474,7 @@ const Compose: React.FC<{}> = () => {
         toEncryptedData.encryptedSymmetricObjJSON,
       ],
     });
+    */
   }
 
   function addAttachment(event: React.ChangeEvent<HTMLInputElement>) {
@@ -279,9 +484,11 @@ const Compose: React.FC<{}> = () => {
     }
 
     if (attachment.size > FILE_MAX_SIZE) {
-      uiActions.showErrorNotification({
-        message: 'File is too big',
-      });
+      dispatch(
+        uiActions.showErrorNotification({
+          message: 'File is too big',
+        })
+      );
       return;
     }
 
@@ -314,42 +521,14 @@ const Compose: React.FC<{}> = () => {
         onSubmit={onSendHandler}
         className="px-4 py-3 mb-8 bg-white rounded-lg shadow-md dark:bg-gray-800"
       >
-        <label className="block text-sm">
-          <span className="text-gray-700 dark:text-gray-400">To</span>
-          <div className="relative text-gray-500 focus-within:text-green-600 dark:focus-within:text-green-400">
-            <input
-              disabled={!!loading}
-              required={true}
-              className="
-                block
-                w-full
-                pl-10
-                mt-1
-                mb-5
-                border-2
-                rounded
-                text-sm
-                text-black
-                dark:text-gray-300
-                dark:border-gray-600
-                dark:bg-gray-700
-                focus:border-green-400
-                focus:outline-nonemb-5
-                focus:shadow-outline-green
-                dark:focus:shadow-outline-gray
-                form-input
-              "
-              value={toIdentity}
-              onChange={toIdentityChangedHandler}
-              placeholder="Email Recipient Identity"
-            />
-            <div className="absolute inset-y-0 flex items-center ml-3 pointer-events-none">
-              <UserIcon className="w-5 h-6" />
-            </div>
-          </div>
-        </label>
+        <RecipientsInput
+          recipients={recipients}
+          loading={loading}
+          addRecipient={addRecipient}
+          removeRecipient={removeRecipient}
+        />
 
-        <label className="block text-sm">
+        <label className="block text-sm my-3">
           <span className="text-gray-700 dark:text-gray-400">Subject</span>
           <div className="relative text-gray-500 focus-within:text-green-600 dark:focus-within:text-green-400">
             <input
@@ -359,8 +538,7 @@ const Compose: React.FC<{}> = () => {
                 block
                 w-full
                 pl-10
-                mt-1
-                mb-5
+                mt-2
                 border-2
                 rounded
                 text-sm
@@ -384,7 +562,7 @@ const Compose: React.FC<{}> = () => {
           </div>
         </label>
 
-        <label className="block mt-4 text-sm">
+        <label className="block my-2 text-sm mb-3">
           <span className="text-gray-700 dark:text-gray-400">Message</span>
           <textarea
             disabled={!!loading}
@@ -393,8 +571,7 @@ const Compose: React.FC<{}> = () => {
             className="
               block 
               w-full 
-              mt-1 
-              mb-5
+              mt-2
               text-sm
               border-2
               rounded
@@ -415,7 +592,7 @@ const Compose: React.FC<{}> = () => {
           ></textarea>
         </label>
         {attachments.length ? (
-          <div className="text-sm flex flex-col">
+          <div className="text-sm flex flex-col mb-3">
             <span className="mr-2 mb-2">Attachments:</span>
             <div className="flex flex-row flex-wrap">
               {attachments.map((attachment, index) => (
@@ -431,7 +608,7 @@ const Compose: React.FC<{}> = () => {
           ''
         )}
 
-        <div className="flex flex-row mt-4">
+        <div className="flex flex-row mt-5">
           <button
             type="submit"
             disabled={!!loading}
