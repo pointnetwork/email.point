@@ -2,22 +2,19 @@ import { expect } from 'chai';
 import { BigNumber, Contract, ContractReceipt } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ethers } from 'hardhat';
-import { Address } from 'cluster';
-
-const { utils } = ethers;
 
 const SENDER = {
-  ENCRYPTED_ID: utils.formatBytes32String('ENCRYPTED_ID_SENDER'),
+  ENCRYPTED_ID: 'ENCRYPTED_ID_SENDER',
   ENCRYPTED_CONTENT: 'ENCRYPTED_CONTENT_SENDER',
 };
 
 const RECIPIENTS = [
   {
-    ENCRYPTED_ID: utils.formatBytes32String('ENCRYPTED_ID_RECIPIENT_1'),
+    ENCRYPTED_ID: 'ENCRYPTED_ID_RECIPIENT_1',
     ENCRYPTED_CONTENT: 'ENCRYPTED_CONTENT_RECIPIENT_1',
   },
   {
-    ENCRYPTED_ID: utils.formatBytes32String('ENCRYPTED_ID_RECIPIENT_2'),
+    ENCRYPTED_ID: 'ENCRYPTED_ID_RECIPIENT_2',
     ENCRYPTED_CONTENT: 'ENCRYPTED_CONTENT_RECIPIENT_2',
   },
 ];

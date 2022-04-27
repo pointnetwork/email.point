@@ -79,6 +79,7 @@ const Attachment: React.FC<{ attachment: Attachment }> = (props) => {
           items-center
           justify-center
           underline
+          m-1
         "
       >
         <CloudDownloadIcon className="w-4 h-4 mr-2" />
@@ -102,6 +103,7 @@ const Attachment: React.FC<{ attachment: Attachment }> = (props) => {
         py-2
         px-4
         text-gray-500
+        m-1
       "
       onClick={getAttachmentFile}
     >

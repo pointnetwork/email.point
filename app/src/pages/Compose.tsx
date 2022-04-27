@@ -55,7 +55,7 @@ async function encryptAndSaveData(
   };
 }
 
-type EncryptedAttachments = {
+type EncryptedAttachment = {
   storedEncryptedMessageId: string;
   encryptedSymmetricObjJSON: string;
   name: string;
@@ -67,7 +67,7 @@ type EncryptedAttachments = {
 async function getEncryptedAttachments(
   attachments: File[],
   publickKey: string
-): Promise<EncryptedAttachments[]> {
+): Promise<EncryptedAttachment[]> {
   const encryptedAttachmentsData = await Promise.all(
     attachments.map(async (attachment) => {
       const attachmentContent = await getFileContent(attachment);
@@ -103,7 +103,6 @@ const Compose: React.FC<{}> = () => {
   const [searchParams] = useSearchParams();
 
   const [recipients, setRecipients] = useState<Identity[]>([]);
-  const [toIdentity, setToIdentity] = useState<string>('');
   const [subject, setSubject] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -218,11 +217,6 @@ const Compose: React.FC<{}> = () => {
       });
   }
 
-  /*
-    the email must be encrypted twice
-    1. recipient public key
-    2. sender private key
-  */
   async function send() {
     const recipientsData = await Promise.all(
       recipients.map(async (recipient) => {
@@ -245,9 +239,9 @@ const Compose: React.FC<{}> = () => {
     }
 
     let fromEncryptedAttachments;
-    let recipientsEncryptedAttachments: EncryptedAttachments[];
+    let recipientsEncryptedAttachments: EncryptedAttachment[][];
     if (attachments) {
-      [fromEncryptedAttachments, recipientsEncryptedAttachments] = await Promise.all([
+      [fromEncryptedAttachments, ...recipientsEncryptedAttachments] = await Promise.all([
         getEncryptedAttachments(attachments, publicKey!),
         ...recipientsData.map(({ publicKey }) => getEncryptedAttachments(attachments, publicKey)),
       ]);
@@ -289,13 +283,11 @@ const Compose: React.FC<{}> = () => {
       params: [fromEncryptedData.storedEncryptedMessageId],
     });
 
-    console.log('newEmailId', newEmailId);
-
     await Promise.all(
       recipientsData.map(({ address }, index) =>
         ContractService.sendContract({
           contract: 'PointEmail',
-          method: 'addRecipient',
+          method: 'addRecipientToEmail',
           params: [
             newEmailId,
             address,
