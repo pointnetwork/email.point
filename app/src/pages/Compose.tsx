@@ -194,23 +194,12 @@ const Compose: React.FC<{}> = () => {
     setLoading(true);
     send()
       .then(() => {
-        dispatch(
-          uiActions.showSuccessNotification({
-            message: 'Email sent successfully.',
-          })
-        );
-        cleanForm();
         setLoading(false);
       })
       .catch((error) => {
-        console.error(error);
-        let message = 'Something went wrong, try again later.';
-        if (error === ERRORS.INVALID_RECIPIENT) {
-          message = 'Invalid Recipient';
-        }
         dispatch(
           uiActions.showErrorNotification({
-            message,
+            message: 'Something went wrong, try again later.',
           })
         );
         setLoading(false);
@@ -218,6 +207,15 @@ const Compose: React.FC<{}> = () => {
   }
 
   async function send() {
+    if (!recipients.length) {
+      dispatch(
+        uiActions.showErrorNotification({
+          message: 'A recipient is required',
+        })
+      );
+      return;
+    }
+
     const recipientsData = await Promise.all(
       recipients.map(async (recipient) => {
         const [address, publicKey] = await Promise.all([
@@ -225,6 +223,7 @@ const Compose: React.FC<{}> = () => {
           IdentityService.publicKeyByIdentity(recipient),
         ]);
         return {
+          recipient,
           address,
           publicKey,
         };
@@ -234,8 +233,14 @@ const Compose: React.FC<{}> = () => {
     const invalidRecipient = recipientsData.find(
       ({ address }) => address === CONSTANTS.AddressZero
     );
+
     if (invalidRecipient) {
-      throw ERRORS.INVALID_RECIPIENT;
+      dispatch(
+        uiActions.showErrorNotification({
+          message: `Recipient: ${invalidRecipient.recipient} is invalid`,
+        })
+      );
+      return;
     }
 
     let fromEncryptedAttachments;
@@ -297,6 +302,13 @@ const Compose: React.FC<{}> = () => {
         })
       )
     );
+
+    dispatch(
+      uiActions.showSuccessNotification({
+        message: 'Email sent successfully.',
+      })
+    );
+    cleanForm();
   }
 
   function addAttachment(event: React.ChangeEvent<HTMLInputElement>) {
