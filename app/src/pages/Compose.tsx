@@ -280,11 +280,31 @@ const Compose: React.FC<{}> = () => {
       params: [
         fromEncryptedData.storedEncryptedMessageId,
         fromEncryptedData.encryptedSymmetricObjJSON,
-        recipientsData.map(({ address }) => address),
-        recipientsEncryptedData.map(({ storedEncryptedMessageId }) => storedEncryptedMessageId),
-        recipientsEncryptedData.map(({ encryptedSymmetricObjJSON }) => encryptedSymmetricObjJSON),
       ],
     });
+
+    const newEmailId = await ContractService.callContract({
+      contract: 'PointEmail',
+      method: 'getEmailIdBySenderEncryptedMessageId',
+      params: [fromEncryptedData.storedEncryptedMessageId],
+    });
+
+    console.log('newEmailId', newEmailId);
+
+    await Promise.all(
+      recipientsData.map(({ address }, index) =>
+        ContractService.sendContract({
+          contract: 'PointEmail',
+          method: 'addRecipient',
+          params: [
+            newEmailId,
+            address,
+            recipientsEncryptedData[index].storedEncryptedMessageId,
+            recipientsEncryptedData[index].encryptedSymmetricObjJSON,
+          ],
+        })
+      )
+    );
   }
 
   function addAttachment(event: React.ChangeEvent<HTMLInputElement>) {

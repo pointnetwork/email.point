@@ -47,14 +47,18 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     mapping(address => Email[]) private toEmails;
     mapping(address => Email[]) private fromEmails;
 
+    // workaround until we can get the email id from events
+    mapping(bytes32 => uint256) private fromEncryptedMessageIdToEmailId;
+
     mapping(uint256 => mapping(address => EmailUserMetaData))
         private emailUserMetadata;
 
-    event EmailSent(
+    event EmailCreated(uint256 id, address indexed from, uint256 timestamp);
+
+    event RecipientAdded(
         uint256 id,
-        address indexed from,
-        address[] indexed to,
-        uint256 indexed timestamp
+        address indexed recipient,
+        uint256 timestamp
     );
 
     event EmailDeleted(
@@ -78,6 +82,11 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         uint256 timestamp
     );
 
+    modifier validEmail(uint256 _emailId) {
+        require(emailIdToEmail[_emailId].id == _emailId, "Invalid Email");
+        _;
+    }
+
     modifier onlySenderOrRecipient(uint256 _emailId) {
         require(
             emailIdToEmail[_emailId].from == msg.sender ||
@@ -87,6 +96,11 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                 0,
             "Permission Denied"
         );
+        _;
+    }
+
+    modifier onlySender(uint256 _emailId) {
+        require(emailIdToEmail[_emailId].from == msg.sender, "Only Sender");
         _;
     }
 
@@ -107,36 +121,29 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
      * @dev Send a new email to a recipient
      * @param _fromEncryptedMessageId - The stored message id for the sender
      * @param _fromEncryptedSymmetricObj - The encryption settings for the sender
-     * @param _to - The recipients addresses
-     * @param _recipientsEncryptedMessageIds - The recipients stored message ids
-     * @param _recipientsEncryptedSymmetricObjs - The recipients settings
      */
     function send(
         bytes32 _fromEncryptedMessageId,
-        string memory _fromEncryptedSymmetricObj,
-        address[] memory _to,
-        bytes32[] memory _recipientsEncryptedMessageIds,
-        string[] memory _recipientsEncryptedSymmetricObjs
+        string memory _fromEncryptedSymmetricObj
     ) external {
-        require(
-            _to.length == _recipientsEncryptedMessageIds.length &&
-                _to.length == _recipientsEncryptedSymmetricObjs.length,
-            "Invalid input params"
-        );
-
         // New email id
         _emailIds.increment();
         uint256 newEmailId = _emailIds.current();
+
+        address[] memory _emptyToArray;
 
         // New email object
         Email memory _email = Email(
             newEmailId,
             msg.sender,
-            _to,
+            _emptyToArray,
             block.timestamp
         );
 
         emailIdToEmail[newEmailId] = _email;
+
+        // workaround until we have the email id from events on the frontend
+        fromEncryptedMessageIdToEmailId[_fromEncryptedMessageId] = newEmailId;
 
         // sender info
         fromEmails[msg.sender].push(_email);
@@ -150,6 +157,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         emailUserMetadata[newEmailId][msg.sender] = _fromMetadata;
 
         // recipients info
+        /*
         for (uint256 i = 0; i < _to.length; i++) {
             toEmails[_to[i]].push(_email);
 
@@ -163,8 +171,58 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
             emailUserMetadata[newEmailId][_to[i]] = _toMetadata;
         }
+        */
 
-        emit EmailSent(newEmailId, msg.sender, _to, block.timestamp);
+        emit EmailCreated(newEmailId, msg.sender, block.timestamp);
+    }
+
+    /**
+     * @notice Get Email Id from sender encrypted message id
+     * @dev Get Email Id from sender encrypted message id
+     * @param _fromEncryptedMessageId - Sender encrypted message id
+     */
+    function getEmailIdBySenderEncryptedMessageId(
+        bytes32 _fromEncryptedMessageId
+    ) external view returns (uint256) {
+        return fromEncryptedMessageIdToEmailId[_fromEncryptedMessageId];
+    }
+
+    /**
+     * @notice Add a recipient to a created email
+     * @dev Add a recipient to a created email
+     * @param _emailId - Email id
+     * @param _recipient - Recipient address
+     * @param _recipientEncryptedMessageId - The recipients stored message ids
+     * @param _recipientEncryptedSymmetricObj - The recipients settings
+     */
+    function addRecipientToEmail(
+        uint256 _emailId,
+        address _recipient,
+        bytes32 _recipientEncryptedMessageId,
+        string memory _recipientEncryptedSymmetricObj
+    ) external onlySender(_emailId) validEmail(_emailId) {
+        // Don't add the same recipient twice
+        require(
+            bytes(emailUserMetadata[_emailId][_recipient].encryptedSymmetricObj)
+                .length == 0,
+            "Recipient already added"
+        );
+
+        Email memory email = emailIdToEmail[_emailId];
+
+        toEmails[_recipient].push(email);
+
+        EmailUserMetaData memory _toMetadata = EmailUserMetaData(
+            _recipientEncryptedMessageId,
+            _recipientEncryptedSymmetricObj,
+            false,
+            false,
+            false
+        );
+
+        emailUserMetadata[_emailId][_recipient] = _toMetadata;
+
+        emit RecipientAdded(_emailId, _recipient, block.timestamp);
     }
 
     /**

@@ -1,7 +1,8 @@
 import { expect } from 'chai';
-import { BigNumber, Contract } from 'ethers';
+import { BigNumber, Contract, ContractReceipt } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ethers } from 'hardhat';
+import { Address } from 'cluster';
 
 const { utils } = ethers;
 
@@ -48,18 +49,41 @@ describe('PointEmail', () => {
   });
 
   describe('if user1 sends an email to user2', () => {
-    before(async () => {
+    async function addRecipient(
+      emailId: BigNumber,
+      recipient: string,
+      encryptedMessageId: string,
+      encryptedSymmetricObj: string
+    ): Promise<ContractReceipt> {
       const tx = await contract
         .connect(user1)
-        .send(
-          SENDER.ENCRYPTED_ID,
-          SENDER.ENCRYPTED_CONTENT,
-          [user2.address, user3.address],
-          [RECIPIENTS[0].ENCRYPTED_ID, RECIPIENTS[1].ENCRYPTED_ID],
-          [RECIPIENTS[0].ENCRYPTED_CONTENT, RECIPIENTS[1].ENCRYPTED_CONTENT]
-        );
+        .addRecipientToEmail(emailId, recipient, encryptedMessageId, encryptedSymmetricObj);
       const receipt = await tx.wait();
-      email1Id = receipt.events[0].args[0];
+      return receipt;
+    }
+
+    before(async () => {
+      const tx = await contract.connect(user1).send(SENDER.ENCRYPTED_ID, SENDER.ENCRYPTED_CONTENT);
+      const receipt = await tx.wait();
+
+      email1Id = await contract.getEmailIdBySenderEncryptedMessageId(SENDER.ENCRYPTED_ID);
+
+      // email1Id = receipt.events[0].args[0];
+
+      await Promise.all([
+        addRecipient(
+          email1Id,
+          user2.address,
+          RECIPIENTS[0].ENCRYPTED_ID,
+          RECIPIENTS[0].ENCRYPTED_CONTENT
+        ),
+        addRecipient(
+          email1Id,
+          user3.address,
+          RECIPIENTS[1].ENCRYPTED_ID,
+          RECIPIENTS[1].ENCRYPTED_CONTENT
+        ),
+      ]);
     });
 
     it('user1 should have the email on his sent tab', async () => {
