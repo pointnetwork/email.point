@@ -273,7 +273,7 @@ const Compose: React.FC<{}> = () => {
       ),
     ]);
 
-    await ContractService.sendContract({
+    const { events } = await ContractService.sendContract({
       contract: 'PointEmail',
       method: 'send',
       params: [
@@ -282,11 +282,7 @@ const Compose: React.FC<{}> = () => {
       ],
     });
 
-    const newEmailId = await ContractService.callContract({
-      contract: 'PointEmail',
-      method: 'getEmailIdBySenderEncryptedMessageId',
-      params: [fromEncryptedData.storedEncryptedMessageId],
-    });
+    const newEmailId = events['EmailCreated'].returnValues.id;
 
     await Promise.all(
       recipientsData.map(({ address }, index) =>

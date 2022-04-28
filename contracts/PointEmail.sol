@@ -47,9 +47,6 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     mapping(address => Email[]) private toEmails;
     mapping(address => Email[]) private fromEmails;
 
-    // workaround until we can get the email id from events
-    mapping(string => uint256) private fromEncryptedMessageIdToEmailId;
-
     mapping(uint256 => mapping(address => EmailUserMetaData))
         private emailUserMetadata;
 
@@ -142,9 +139,6 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
         emailIdToEmail[newEmailId] = _email;
 
-        // workaround until we have the email id from events on the frontend
-        fromEncryptedMessageIdToEmailId[_fromEncryptedMessageId] = newEmailId;
-
         // sender info
         fromEmails[msg.sender].push(_email);
         EmailUserMetaData memory _fromMetadata = EmailUserMetaData(
@@ -174,17 +168,6 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         */
 
         emit EmailCreated(newEmailId, msg.sender, block.timestamp);
-    }
-
-    /**
-     * @notice Get Email Id from sender encrypted message id
-     * @dev Get Email Id from sender encrypted message id
-     * @param _fromEncryptedMessageId - Sender encrypted message id
-     */
-    function getEmailIdBySenderEncryptedMessageId(
-        string memory _fromEncryptedMessageId
-    ) external view returns (uint256) {
-        return fromEncryptedMessageIdToEmailId[_fromEncryptedMessageId];
     }
 
     /**

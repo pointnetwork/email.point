@@ -63,9 +63,7 @@ describe('PointEmail', () => {
       const tx = await contract.connect(user1).send(SENDER.ENCRYPTED_ID, SENDER.ENCRYPTED_CONTENT);
       const receipt = await tx.wait();
 
-      email1Id = await contract.getEmailIdBySenderEncryptedMessageId(SENDER.ENCRYPTED_ID);
-
-      // email1Id = receipt.events[0].args[0];
+      email1Id = receipt.events[0].args[0];
 
       await Promise.all([
         addRecipient(
