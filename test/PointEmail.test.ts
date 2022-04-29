@@ -1,19 +1,28 @@
 import { expect } from 'chai';
-import { Contract } from 'ethers';
+import { BigNumber, Contract, ContractReceipt } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ethers } from 'hardhat';
 
-const { utils } = ethers;
+const SENDER = {
+  ENCRYPTED_ID: 'ENCRYPTED_ID_SENDER',
+  ENCRYPTED_CONTENT: 'ENCRYPTED_CONTENT_SENDER',
+};
 
-const ENCRYPTED_ID_USER_1 = utils.formatBytes32String('ENCRYPTED_ID_USER_1');
-const ENCRYPTED_CONTENT_USER_1 = 'ENCRYPTED_CONTENT_USER_1';
-const ENCRYPTED_ID_USER_2 = utils.formatBytes32String('ENCRYPTED_ID_USER_2');
-const ENCRYPTED_CONTENT_USER_2 = 'ENCRYPTED_CONTENT_USER_2';
+const RECIPIENTS = [
+  {
+    ENCRYPTED_ID: 'ENCRYPTED_ID_RECIPIENT_1',
+    ENCRYPTED_CONTENT: 'ENCRYPTED_CONTENT_RECIPIENT_1',
+  },
+  {
+    ENCRYPTED_ID: 'ENCRYPTED_ID_RECIPIENT_2',
+    ENCRYPTED_CONTENT: 'ENCRYPTED_CONTENT_RECIPIENT_2',
+  },
+];
 
 type EmailWithMetaData = {
   id: number;
   from: string;
-  to: string;
+  to: string[];
   createdAt: number;
   encryptedMessageId: string;
   encryptedSymmetricObj: string;
@@ -27,66 +36,98 @@ describe('PointEmail', () => {
   let owner: SignerWithAddress;
   let user1: SignerWithAddress;
   let user2: SignerWithAddress;
+  let user3: SignerWithAddress;
+  let email1Id: BigNumber;
   before(async () => {
-    [owner, user1, user2] = await ethers.getSigners();
+    [owner, user1, user2, user3] = await ethers.getSigners();
     const Factory = await ethers.getContractFactory('PointEmail');
     contract = await Factory.deploy();
     await contract.deployed();
   });
 
   describe('if user1 sends an email to user2', () => {
-    before(async () => {
+    async function addRecipient(
+      emailId: BigNumber,
+      recipient: string,
+      encryptedMessageId: string,
+      encryptedSymmetricObj: string
+    ): Promise<ContractReceipt> {
       const tx = await contract
         .connect(user1)
-        .send(
-          user2.address,
-          ENCRYPTED_ID_USER_1,
-          ENCRYPTED_CONTENT_USER_1,
-          ENCRYPTED_ID_USER_2,
-          ENCRYPTED_CONTENT_USER_2
-        );
+        .addRecipientToEmail(emailId, recipient, encryptedMessageId, encryptedSymmetricObj);
       const receipt = await tx.wait();
+      return receipt;
+    }
+
+    before(async () => {
+      const tx = await contract.connect(user1).send(SENDER.ENCRYPTED_ID, SENDER.ENCRYPTED_CONTENT);
+      const receipt = await tx.wait();
+
+      email1Id = receipt.events[0].args[0];
+
+      await Promise.all([
+        addRecipient(
+          email1Id,
+          user2.address,
+          RECIPIENTS[0].ENCRYPTED_ID,
+          RECIPIENTS[0].ENCRYPTED_CONTENT
+        ),
+        addRecipient(
+          email1Id,
+          user3.address,
+          RECIPIENTS[1].ENCRYPTED_ID,
+          RECIPIENTS[1].ENCRYPTED_CONTENT
+        ),
+      ]);
     });
 
     it('user1 should have the email on his sent tab', async () => {
-      const emails = await contract.connect(user1).getAllEmailsByFromAddress(user1.address);
+      const emails: EmailWithMetaData[] = await contract
+        .connect(user1)
+        .getAllEmailsByFromAddress(user1.address);
       expect(emails.length).to.equal(1);
       const [email] = emails;
       expect(email.id.toString()).to.equal('1');
-      expect(email.encryptedMessageId).to.equal(ENCRYPTED_ID_USER_1);
-      expect(email.encryptedSymmetricObj).to.equal(ENCRYPTED_CONTENT_USER_1);
+      expect(email.encryptedMessageId).to.equal(SENDER.ENCRYPTED_ID);
+      expect(email.encryptedSymmetricObj).to.equal(SENDER.ENCRYPTED_CONTENT);
     });
 
     it('user2 should have the email on his inbox tab', async () => {
-      const emails = await contract.connect(user2).getAllEmailsByToAddress(user2.address);
+      const emails: EmailWithMetaData[] = await contract
+        .connect(user2)
+        .getAllEmailsByToAddress(user2.address);
       expect(emails.length).to.equal(1);
       const [email] = emails;
       expect(email.id.toString()).to.equal('1');
-      expect(email.encryptedMessageId).to.equal(ENCRYPTED_ID_USER_2);
-      expect(email.encryptedSymmetricObj).to.equal(ENCRYPTED_CONTENT_USER_2);
+      expect(email.encryptedMessageId).to.equal(RECIPIENTS[0].ENCRYPTED_ID);
+      expect(email.encryptedSymmetricObj).to.equal(RECIPIENTS[0].ENCRYPTED_CONTENT);
     });
 
     describe('email read metadata', () => {
       it(`should be marked as read for sender`, async () => {
-        const emailWithMetaData = await contract.connect(user1).getMessageById(ENCRYPTED_ID_USER_1);
+        const emailWithMetaData: EmailWithMetaData = await contract
+          .connect(user1)
+          .getEmailById(email1Id);
         expect(emailWithMetaData.read).to.equal(true);
       });
 
       it(`should be marked as not read for recipient`, async () => {
-        const emailWithMetaData = await contract.connect(user2).getMessageById(ENCRYPTED_ID_USER_2);
+        const emailWithMetaData: EmailWithMetaData = await contract
+          .connect(user2)
+          .getEmailById(email1Id);
         expect(emailWithMetaData.read).to.equal(false);
       });
 
       describe('if user2 mark the email as read', () => {
         before(async () => {
-          const tx = await contract.connect(user2).markAsRead(ENCRYPTED_ID_USER_2, true);
+          const tx = await contract.connect(user2).markAsRead(email1Id, true);
           await tx.wait();
         });
 
         it(`email should be marked as read`, async () => {
-          const emailWithMetaData = await contract
+          const emailWithMetaData: EmailWithMetaData = await contract
             .connect(user2)
-            .getMessageById(ENCRYPTED_ID_USER_2);
+            .getEmailById(email1Id);
           expect(emailWithMetaData.read).to.equal(true);
         });
       });
@@ -94,18 +135,25 @@ describe('PointEmail', () => {
 
     describe('email important metadata', () => {
       before(async () => {
-        const tx = await contract.connect(user2).markAsImportant(ENCRYPTED_ID_USER_1, true);
+        const tx = await contract.connect(user2).markAsImportant(email1Id, true);
         await tx.wait();
       });
 
       it(`email should be in user's /important tab`, async () => {
-        const [importantEmail] = await contract.connect(user2).getImportantEmails();
-        expect(importantEmail.encryptedMessageId).to.equal(ENCRYPTED_ID_USER_2);
+        const importantEmails: EmailWithMetaData[] = await contract
+          .connect(user2)
+          .getImportantEmails();
+
+        expect(
+          importantEmails.some(
+            ({ encryptedMessageId }) => encryptedMessageId === RECIPIENTS[0].ENCRYPTED_ID
+          )
+        ).to.equal(true);
       });
 
       describe('and the user unmark the email as important', () => {
         before(async () => {
-          const tx = await contract.connect(user2).markAsImportant(ENCRYPTED_ID_USER_2, false);
+          const tx = await contract.connect(user2).markAsImportant(email1Id, false);
           await tx.wait();
         });
 
@@ -116,7 +164,7 @@ describe('PointEmail', () => {
 
           expect(
             importantEmails.some(
-              ({ encryptedMessageId }) => encryptedMessageId === ENCRYPTED_ID_USER_2
+              ({ encryptedMessageId }) => encryptedMessageId === RECIPIENTS[0].ENCRYPTED_ID
             )
           ).to.equal(false);
         });
@@ -125,7 +173,7 @@ describe('PointEmail', () => {
 
     describe('if the user2 deletes the email', () => {
       before(async () => {
-        const tx = await contract.connect(user2).deleteMessage(ENCRYPTED_ID_USER_2, true);
+        const tx = await contract.connect(user2).deleteEmail(email1Id, true);
         await tx.wait();
       });
 
@@ -134,8 +182,8 @@ describe('PointEmail', () => {
         expect(emails.length).to.equal(1);
         const [email] = emails;
         expect(email.id.toString()).to.equal('1');
-        expect(email.encryptedMessageId).to.equal(ENCRYPTED_ID_USER_2);
-        expect(email.encryptedSymmetricObj).to.equal(ENCRYPTED_CONTENT_USER_2);
+        expect(email.encryptedMessageId).to.equal(RECIPIENTS[0].ENCRYPTED_ID);
+        expect(email.encryptedSymmetricObj).to.equal(RECIPIENTS[0].ENCRYPTED_CONTENT);
       });
 
       it('and the email should disapear from his inbox', async () => {
@@ -145,7 +193,7 @@ describe('PointEmail', () => {
 
       describe('and user2 restores the email', () => {
         before(async () => {
-          const tx = await contract.connect(user2).deleteMessage(ENCRYPTED_ID_USER_2, false);
+          const tx = await contract.connect(user2).deleteEmail(email1Id, false);
           await tx.wait();
         });
 
@@ -154,8 +202,8 @@ describe('PointEmail', () => {
           expect(emails.length).to.equal(1);
           const [email] = emails;
           expect(email.id.toString()).to.equal('1');
-          expect(email.encryptedMessageId).to.equal(ENCRYPTED_ID_USER_2);
-          expect(email.encryptedSymmetricObj).to.equal(ENCRYPTED_CONTENT_USER_2);
+          expect(email.encryptedMessageId).to.equal(RECIPIENTS[0].ENCRYPTED_ID);
+          expect(email.encryptedSymmetricObj).to.equal(RECIPIENTS[0].ENCRYPTED_CONTENT);
         });
       });
     });

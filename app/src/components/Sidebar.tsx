@@ -102,21 +102,6 @@ const Sidebar: React.FC<{ isOpen: boolean; openSidebar: Function }> = (props) =>
         </div>
       </aside>
 
-      <div
-        className={`
-          ${!isOpen ? 'hidden' : ''}
-          fixed
-          inset-0
-          z-10
-          flex
-          items-end
-          bg-black
-          bg-opacity-50
-          sm:items-center
-          sm:justify-center
-        `}
-      ></div>
-
       <aside
         className={`
           ${!isOpen ? 'hidden' : ''}
@@ -134,13 +119,13 @@ const Sidebar: React.FC<{ isOpen: boolean; openSidebar: Function }> = (props) =>
         onKeyDown={() => openSidebar(false)}
       >
         <div className="py-4 text-gray-500 dark:text-gray-400">
-          <a className="ml-6 text-lg font-bold text-gray-800 dark:text-gray-200" href="#">
+          <button className="ml-6 text-lg font-bold text-gray-800 dark:text-gray-200">
             Menu
-          </a>
+          </button>
           <div className="py-2 px-4 mt-5">
             <ComposeButton />
           </div>
-          <ul className="">
+          <ul>
             {menus.map((item) => (
               <Item item={item} key={item.url} />
             ))}

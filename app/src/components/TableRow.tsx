@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { Link } from 'react-router-dom';
 import { StarIcon, CheckIcon } from '@heroicons/react/solid';
 import { StarIcon as StarIconOutline, PaperClipIcon } from '@heroicons/react/outline';
 import dayjs from 'dayjs';
@@ -23,7 +22,7 @@ const TableRow: React.FC<TableRowProps> = (props) => {
 
   function sendToSender(event: React.MouseEvent<HTMLElement>) {
     event.stopPropagation();
-    window.location.href = `/compose?toIdentity=${email.fromIdentity}`;
+    window.location.href = `/compose?to=${email.fromIdentity}`;
   }
 
   function markAsImportant(event: React.MouseEvent<HTMLElement>) {
@@ -52,7 +51,7 @@ const TableRow: React.FC<TableRowProps> = (props) => {
   }
 
   function openEmail() {
-    window.location.href = `/show?id=${email.encryptedMessageId}`;
+    window.location.href = `/show?id=${email.id}`;
   }
 
   return (

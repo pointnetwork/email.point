@@ -32,7 +32,7 @@ const TableView: React.FC<Props> = (props) => {
   const someChecked = emails.some(({ checked }) => checked);
 
   async function onMarkAsImportantHandler(_email: Email) {
-    await EmailService.markEmailAsImportant(_email.encryptedMessageId, !_email.important);
+    await EmailService.markEmailAsImportant(_email.id, !_email.important);
     setEmails((emails) => {
       return emails.map((email) => {
         if (email.id === _email.id) {
@@ -73,9 +73,7 @@ const TableView: React.FC<Props> = (props) => {
       const deleteMessagesPromises: Promise<void>[] = [];
       emails.forEach((email) => {
         if (email.checked) {
-          deleteMessagesPromises.push(
-            EmailService.deleteEmail(email.encryptedMessageId, !email.deleted)
-          );
+          deleteMessagesPromises.push(EmailService.deleteEmail(email.id, !email.deleted));
         }
       });
       await Promise.all(deleteMessagesPromises);

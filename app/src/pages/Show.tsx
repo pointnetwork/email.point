@@ -79,6 +79,7 @@ const Attachment: React.FC<{ attachment: Attachment }> = (props) => {
           items-center
           justify-center
           underline
+          m-1
         "
       >
         <CloudDownloadIcon className="w-4 h-4 mr-2" />
@@ -102,6 +103,7 @@ const Attachment: React.FC<{ attachment: Attachment }> = (props) => {
         py-2
         px-4
         text-gray-500
+        m-1
       "
       onClick={getAttachmentFile}
     >
@@ -125,12 +127,12 @@ const Show: React.FC<{}> = () => {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState<boolean>(true);
 
-  const messageId = searchParams.get('id');
+  const emailId = searchParams.get('id');
 
   const dispatch = useDispatch();
 
   useEffect(() => {
-    if (!messageId) {
+    if (!emailId) {
       dispatch(
         uiActions.showErrorNotification({
           message: 'The message id is invalid',
@@ -139,11 +141,11 @@ const Show: React.FC<{}> = () => {
       return;
     }
 
-    getEmailData(messageId)
+    getEmailData(emailId)
       .then((emailData) => {
         setEmailData(emailData);
         if (!emailData.read) {
-          EmailService.markEmailAsRead(emailData.encryptedMessageId, true);
+          EmailService.markEmailAsRead(emailData.id, true);
         }
         setLoading(false);
       })
@@ -156,17 +158,17 @@ const Show: React.FC<{}> = () => {
         );
         setLoading(false);
       });
-  }, [messageId]);
+  }, [emailId]);
 
   return (
     <>
-      {!messageId ? (
+      {!emailId ? (
         <RedirectWithTimeout to="/" timeout={3000} />
       ) : loading ? (
         <div className="container w-full p-10 flex flex-col items-center">
           <Spinner className="w-8 h-8" />
           <p className="mt-2">Loading message</p>
-          <p className="font-bold">#{messageId}</p>
+          <p className="font-bold">#{emailId}</p>
         </div>
       ) : (
         <div className="container w-full mx-auto md:px-5 grid">
@@ -267,7 +269,7 @@ const Show: React.FC<{}> = () => {
                 mb-5
                 w-40
               "
-              to={`/compose?replyTo=${emailData.encryptedMessageId}`}
+              to={`/compose?replyTo=${emailData.id}`}
             >
               <ReplyIcon className="w-5 h-5 mr-2" />
               <span>Reply</span>
