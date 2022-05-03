@@ -167,6 +167,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
      * @param _recipient - Recipient address
      * @param _recipientEncryptedMessageId - The recipients stored message ids
      * @param _recipientEncryptedSymmetricObj - The recipients settings
+     * @param cc - Recipient added as cc
      */
     function addRecipientToEmail(
         uint256 _emailId,
