@@ -89,10 +89,41 @@ async function getEncryptedAttachments(
   return encryptedAttachmentsData;
 }
 
+function addRecipientFactory(
+  setRecipientsFunction: (value: React.SetStateAction<string[]>) => void
+) {
+  return (recipient: Identity) => {
+    setRecipientsFunction((_recipients) => {
+      if (_recipients.indexOf(recipient) !== -1) {
+        return _recipients;
+      }
+      const recipients = [..._recipients];
+      recipients.push(recipient);
+      return recipients;
+    });
+  };
+}
+
+function removeRecipientFactory(
+  setRecipientsFunction: (value: React.SetStateAction<string[]>) => void
+) {
+  return (recipient: Identity) => {
+    setRecipientsFunction((_recipients) => {
+      const recipients = [..._recipients];
+      const index = recipients.indexOf(recipient);
+      recipients.splice(index, 1);
+      return recipients;
+    });
+  };
+}
+
 const Compose: React.FC<{}> = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const identity = useSelector(identitySelectors.getIdentity);
   const publicKey = useSelector(identitySelectors.getPublicKey);
+
+  const [showCC, setShowCC] = useState<boolean>(false);
+  const [showBCC, setShowBCC] = useState<boolean>(false);
 
   const dispatch = useDispatch();
 
@@ -122,34 +153,6 @@ const Compose: React.FC<{}> = () => {
     setSubject('');
     setMessage('');
     setAttachments([]);
-  }
-
-  function addRecipientFactory(
-    setRecipientsFunction: (value: React.SetStateAction<string[]>) => void
-  ) {
-    return (recipient: Identity) => {
-      setRecipientsFunction((_recipients) => {
-        if (_recipients.indexOf(recipient) !== -1) {
-          return _recipients;
-        }
-        const recipients = [..._recipients];
-        recipients.push(recipient);
-        return recipients;
-      });
-    };
-  }
-
-  function removeRecipientFactory(
-    setRecipientsFunction: (value: React.SetStateAction<string[]>) => void
-  ) {
-    return (recipient: Identity) => {
-      setRecipientsFunction((_recipients) => {
-        const recipients = [..._recipients];
-        const index = recipients.indexOf(recipient);
-        recipients.splice(index, 1);
-        return recipients;
-      });
-    };
   }
 
   const addRecipient = useCallback(addRecipientFactory(setRecipients), [recipients]);
@@ -224,6 +227,48 @@ const Compose: React.FC<{}> = () => {
       });
   }
 
+  async function addRecipientToEmail(
+    emailId: number,
+    recipient: Identity,
+    attachments: File[] = [],
+    cc: boolean = false
+  ) {
+    const [address, publicKey] = await Promise.all([
+      IdentityService.identityToOwner(recipient),
+      IdentityService.publicKeyByIdentity(recipient),
+    ]);
+
+    if (address === CONSTANTS.AddressZero) {
+      throw new Error('Invalid identity');
+    }
+
+    const encryptedAttachments: EncryptedAttachment[] = await getEncryptedAttachments(
+      attachments,
+      publicKey
+    );
+
+    const encryptedData = await encryptAndSaveData(
+      publicKey,
+      JSON.stringify({
+        subject,
+        message,
+        attachments: encryptedAttachments,
+      })
+    );
+
+    await ContractService.sendContract({
+      contract: 'PointEmail',
+      method: 'addRecipientToEmail',
+      params: [
+        emailId,
+        address,
+        encryptedData.storedEncryptedMessageId,
+        encryptedData.encryptedSymmetricObjJSON,
+        cc,
+      ],
+    });
+  }
+
   async function send() {
     if (!recipients.length) {
       dispatch(
@@ -234,63 +279,22 @@ const Compose: React.FC<{}> = () => {
       return;
     }
 
-    const recipientsData = await Promise.all(
-      recipients.map(async (recipient) => {
-        const [address, publicKey] = await Promise.all([
-          IdentityService.identityToOwner(recipient),
-          IdentityService.publicKeyByIdentity(recipient),
-        ]);
-        return {
-          recipient,
-          address,
-          publicKey,
-        };
+    // Get sender data
+    let fromEncryptedAttachments;
+    if (attachments) {
+      fromEncryptedAttachments = getEncryptedAttachments(attachments, publicKey!);
+    }
+
+    const fromEncryptedData = await encryptAndSaveData(
+      publicKey!,
+      JSON.stringify({
+        subject,
+        message,
+        attachments: fromEncryptedAttachments,
       })
     );
 
-    const invalidRecipient = recipientsData.find(
-      ({ address }) => address === CONSTANTS.AddressZero
-    );
-
-    if (invalidRecipient) {
-      dispatch(
-        uiActions.showErrorNotification({
-          message: `Recipient: ${invalidRecipient.recipient} is invalid`,
-        })
-      );
-      return;
-    }
-
-    let fromEncryptedAttachments;
-    let recipientsEncryptedAttachments: EncryptedAttachment[][];
-    if (attachments) {
-      [fromEncryptedAttachments, ...recipientsEncryptedAttachments] = await Promise.all([
-        getEncryptedAttachments(attachments, publicKey!),
-        ...recipientsData.map(({ publicKey }) => getEncryptedAttachments(attachments, publicKey)),
-      ]);
-    }
-
-    const [fromEncryptedData, ...recipientsEncryptedData] = await Promise.all([
-      encryptAndSaveData(
-        publicKey!,
-        JSON.stringify({
-          subject,
-          message,
-          attachments: fromEncryptedAttachments,
-        })
-      ),
-      ...recipientsData.map(({ publicKey }, index) =>
-        encryptAndSaveData(
-          publicKey,
-          JSON.stringify({
-            subject,
-            message,
-            attachments: recipientsEncryptedAttachments[index],
-          })
-        )
-      ),
-    ]);
-
+    // Create the email
     const { events } = await ContractService.sendContract({
       contract: 'PointEmail',
       method: 'send',
@@ -302,20 +306,33 @@ const Compose: React.FC<{}> = () => {
 
     const newEmailId = events['EmailCreated'].returnValues.id;
 
-    await Promise.all(
-      recipientsData.map(({ address }, index) =>
-        ContractService.sendContract({
-          contract: 'PointEmail',
-          method: 'addRecipientToEmail',
-          params: [
-            newEmailId,
-            address,
-            recipientsEncryptedData[index].storedEncryptedMessageId,
-            recipientsEncryptedData[index].encryptedSymmetricObjJSON,
-          ],
+    // Add recipients
+    const response = await Promise.allSettled([
+      ...recipients.map((recipient) =>
+        addRecipientToEmail(newEmailId, recipient, attachments, false)
+      ),
+      ...ccRecipients.map((recipient) =>
+        addRecipientToEmail(newEmailId, recipient, attachments, true)
+      ),
+    ]);
+
+    const rejectedRecipients: string[] = [];
+    const totalRecipients = [...recipients, ...ccRecipients];
+    response.forEach(({ status }, index) => {
+      if (status === 'rejected') {
+        rejectedRecipients.push(totalRecipients[index]);
+      }
+    });
+
+    if (rejectedRecipients.length) {
+      dispatch(
+        uiActions.showErrorNotification({
+          message: `${rejectedRecipients.join(', ')} recipients have failed.`,
         })
-      )
-    );
+      );
+      cleanForm();
+      return;
+    }
 
     dispatch(
       uiActions.showSuccessNotification({
@@ -381,14 +398,61 @@ const Compose: React.FC<{}> = () => {
           removeRecipient={removeRecipient}
         />
 
-        <RecipientsInput
-          label="CC"
-          placeholder="Email CC Recipient Identities"
-          recipients={ccRecipients}
-          disabled={loading}
-          addRecipient={addCCRecipient}
-          removeRecipient={removeCCRecipient}
-        />
+        <div className="flex flex-row mb-5 justify-end">
+          <div className="inline-flex rounded-md shadow-sm" role="group">
+            {[
+              { leyend: 'CC', onClickHandler: () => setShowCC(!showCC) },
+              { leyend: 'BCC', onClickHandler: () => setShowBCC(!showBCC) },
+            ].map(({ leyend, onClickHandler }, index) => (
+              <button
+                onClick={onClickHandler}
+                type="button"
+                className={`
+                  py-2 
+                  px-4 
+                  text-sm 
+                  font-medium 
+                  text-gray-900 
+                  bg-white 
+                  border 
+                  border-gray-200 
+                  hover:bg-gray-100 
+                  hover:text-green-600 
+                  focus:z-10 focus:ring-2 
+                  focus:ring-green-600 
+                  focus:text-green-600 
+                  dark:bg-gray-700 
+                  dark:border-gray-600 
+                  dark:text-white 
+                  dark:hover:text-white 
+                  dark:hover:bg-gray-600 
+                  dark:focus:ring-green-400 
+                  dark:focus:text-white
+                  focus:border-green-400 
+                  focus:outline-nonemb-5
+                  focus:shadow-outline-green 
+                  dark:focus:shadow-outline-gray
+                  ${index === 0 ? 'rounded-l-lg border-r-0' : 'rounded-r-lg'}
+                `}
+              >
+                {leyend}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {showCC || ccRecipients.length ? (
+          <RecipientsInput
+            label="CC"
+            placeholder="Email CC Recipient Identities"
+            recipients={ccRecipients}
+            disabled={loading}
+            addRecipient={addCCRecipient}
+            removeRecipient={removeCCRecipient}
+          />
+        ) : (
+          ''
+        )}
 
         <label className="block text-sm">
           <span className="text-gray-700 dark:text-gray-400">Subject</span>

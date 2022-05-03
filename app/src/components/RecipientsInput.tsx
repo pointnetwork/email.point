@@ -19,6 +19,7 @@ const RecipientsInput: React.FC<{
 }> = (props) => {
   const { recipients, disabled, addRecipient, removeRecipient, label, placeholder } = props;
   const [identity, setIdentity] = useState<Identity>('');
+  const [focus, setFocus] = useState<boolean>(false);
 
   const dispatch = useDispatch();
 
@@ -74,9 +75,17 @@ const RecipientsInput: React.FC<{
   const onKeyDownHandler = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
       if (event.key === 'Enter') {
-        console.log(identity);
         validateAndAddNewRecipient(identity);
         setIdentity('');
+        return;
+      }
+
+      // Remove last identity
+      if (event.key === 'Backspace') {
+        if (!recipients.length) {
+          return;
+        }
+        removeRecipient(recipients.slice(-1));
       }
     },
     [recipients, identity]
@@ -87,7 +96,7 @@ const RecipientsInput: React.FC<{
       <span className="text-gray-700 dark:text-gray-400 mb-2">{label}</span>
       <div className="flex flex-col w-full">
         <div
-          className="
+          className={`
             mt-1
             text-gray-500 
             focus-within:text-green-600 
@@ -98,14 +107,15 @@ const RecipientsInput: React.FC<{
             dark:text-gray-300
             dark:border-gray-600
             dark:bg-gray-700
-            focus:border-green-400
-            focus:outline-nonemb-5
-            focus:shadow-outline-green
-            dark:focus:shadow-outline-gray
             flex
             flex-row
             flex-wrap
-          "
+            ${
+              focus
+                ? `border-green-400 outline-nonemb-5 shadow-outline-green dark:shadow-outline-gray`
+                : ''
+            }}  
+          `}
         >
           {recipients.length ? (
             recipients.map((recipient, index) => (
@@ -133,6 +143,8 @@ const RecipientsInput: React.FC<{
             value={identity}
             onChange={onIdentityChangeHandler}
             onKeyDown={onKeyDownHandler}
+            onFocus={() => setFocus(true)}
+            onBlur={() => setFocus(false)}
             placeholder={placeholder}
           />
         </div>

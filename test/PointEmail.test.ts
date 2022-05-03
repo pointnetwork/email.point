@@ -23,6 +23,7 @@ type EmailWithMetaData = {
   id: number;
   from: string;
   to: string[];
+  cc: string[];
   createdAt: number;
   encryptedMessageId: string;
   encryptedSymmetricObj: string;
@@ -37,9 +38,11 @@ describe('PointEmail', () => {
   let user1: SignerWithAddress;
   let user2: SignerWithAddress;
   let user3: SignerWithAddress;
+  let user4: SignerWithAddress;
+  let user5: SignerWithAddress;
   let email1Id: BigNumber;
   before(async () => {
-    [owner, user1, user2, user3] = await ethers.getSigners();
+    [owner, user1, user2, user3, user4, user5] = await ethers.getSigners();
     const Factory = await ethers.getContractFactory('PointEmail');
     contract = await Factory.deploy();
     await contract.deployed();
@@ -50,11 +53,12 @@ describe('PointEmail', () => {
       emailId: BigNumber,
       recipient: string,
       encryptedMessageId: string,
-      encryptedSymmetricObj: string
+      encryptedSymmetricObj: string,
+      cc: boolean = false
     ): Promise<ContractReceipt> {
       const tx = await contract
         .connect(user1)
-        .addRecipientToEmail(emailId, recipient, encryptedMessageId, encryptedSymmetricObj);
+        .addRecipientToEmail(emailId, recipient, encryptedMessageId, encryptedSymmetricObj, cc);
       const receipt = await tx.wait();
       return receipt;
     }
@@ -90,6 +94,47 @@ describe('PointEmail', () => {
       expect(email.id.toString()).to.equal('1');
       expect(email.encryptedMessageId).to.equal(SENDER.ENCRYPTED_ID);
       expect(email.encryptedSymmetricObj).to.equal(SENDER.ENCRYPTED_CONTENT);
+    });
+
+    describe('cc users', () => {
+      before(async () => {
+        await addRecipient(
+          email1Id,
+          user4.address,
+          RECIPIENTS[1].ENCRYPTED_ID,
+          RECIPIENTS[1].ENCRYPTED_CONTENT,
+          true
+        );
+      });
+
+      it(`user4 should be added as cc`, async () => {
+        const email: EmailWithMetaData = await contract.connect(user4).getEmailById(email1Id);
+        expect(email.from).to.not.equal(user4.address);
+        expect(email.to.includes(user4.address)).to.equal(false);
+        expect(email.cc.includes(user4.address)).to.equal(true);
+      });
+
+      it('user5 should be able to be added as both cc and to', async () => {
+        await addRecipient(
+          email1Id,
+          user5.address,
+          RECIPIENTS[1].ENCRYPTED_ID,
+          RECIPIENTS[1].ENCRYPTED_CONTENT,
+          false
+        );
+        await addRecipient(
+          email1Id,
+          user5.address,
+          RECIPIENTS[1].ENCRYPTED_ID,
+          RECIPIENTS[1].ENCRYPTED_CONTENT,
+          true
+        );
+
+        const email: EmailWithMetaData = await contract.connect(user5).getEmailById(email1Id);
+        expect(email.from).to.not.equal(user5.address);
+        expect(email.to.includes(user5.address)).to.equal(true);
+        expect(email.cc.includes(user5.address)).to.equal(true);
+      });
     });
 
     it('user2 should have the email on his inbox tab', async () => {
