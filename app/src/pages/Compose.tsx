@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSearchParams } from 'react-router-dom';
 
@@ -103,6 +103,7 @@ const Compose: React.FC<{}> = () => {
   const [searchParams] = useSearchParams();
 
   const [recipients, setRecipients] = useState<Identity[]>([]);
+  const [ccRecipients, setCCRecipients] = useState<Identity[]>([]);
   const [subject, setSubject] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -117,27 +118,44 @@ const Compose: React.FC<{}> = () => {
 
   function cleanForm() {
     setRecipients([]);
+    setCCRecipients([]);
     setSubject('');
     setMessage('');
     setAttachments([]);
   }
 
-  function addRecipient(recipient: Identity) {
-    setRecipients((_recipients) => {
-      const recipients = [..._recipients];
-      recipients.push(recipient);
-      return recipients;
-    });
+  function addRecipientFactory(
+    setRecipientsFunction: (value: React.SetStateAction<string[]>) => void
+  ) {
+    return (recipient: Identity) => {
+      setRecipientsFunction((_recipients) => {
+        if (_recipients.indexOf(recipient) !== -1) {
+          return _recipients;
+        }
+        const recipients = [..._recipients];
+        recipients.push(recipient);
+        return recipients;
+      });
+    };
   }
 
-  function removeRecipient(recipient: Identity) {
-    setRecipients((_recipients) => {
-      const recipients = [..._recipients];
-      const index = recipients.indexOf(recipient);
-      recipients.splice(index, 1);
-      return recipients;
-    });
+  function removeRecipientFactory(
+    setRecipientsFunction: (value: React.SetStateAction<string[]>) => void
+  ) {
+    return (recipient: Identity) => {
+      setRecipientsFunction((_recipients) => {
+        const recipients = [..._recipients];
+        const index = recipients.indexOf(recipient);
+        recipients.splice(index, 1);
+        return recipients;
+      });
+    };
   }
+
+  const addRecipient = useCallback(addRecipientFactory(setRecipients), [recipients]);
+  const removeRecipient = useCallback(removeRecipientFactory(setRecipients), [recipients]);
+  const addCCRecipient = useCallback(addRecipientFactory(setCCRecipients), [ccRecipients]);
+  const removeCCRecipient = useCallback(removeRecipientFactory(setCCRecipients), [ccRecipients]);
 
   async function setReplyEmailData(replyToEmailId: string) {
     try {
@@ -332,14 +350,17 @@ const Compose: React.FC<{}> = () => {
     }
   }
 
-  function removeAttachment(attachment: File) {
-    setAttachments((_attachments) => {
-      const attachments = [..._attachments];
-      const index = attachments.indexOf(attachment);
-      attachments.splice(index, 1);
-      return attachments;
-    });
-  }
+  const removeAttachment = useCallback(
+    (attachment: File) => {
+      setAttachments((_attachments) => {
+        const attachments = [..._attachments];
+        const index = attachments.indexOf(attachment);
+        attachments.splice(index, 1);
+        return attachments;
+      });
+    },
+    [attachments]
+  );
 
   return (
     <div className="container px-6 mx-auto grid">
@@ -352,10 +373,21 @@ const Compose: React.FC<{}> = () => {
         className="px-4 py-3 mb-8 bg-white rounded-lg shadow-md dark:bg-gray-800"
       >
         <RecipientsInput
+          label="To"
+          placeholder="Email Recipient Identities"
           recipients={recipients}
-          loading={loading}
+          disabled={loading}
           addRecipient={addRecipient}
           removeRecipient={removeRecipient}
+        />
+
+        <RecipientsInput
+          label="CC"
+          placeholder="Email CC Recipient Identities"
+          recipients={ccRecipients}
+          disabled={loading}
+          addRecipient={addCCRecipient}
+          removeRecipient={removeCCRecipient}
         />
 
         <label className="block text-sm">

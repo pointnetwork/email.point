@@ -1,5 +1,5 @@
-import React from 'react';
-import { XCircleIcon } from '@heroicons/react/outline';
+import React, { memo } from 'react';
+import { XIcon } from '@heroicons/react/outline';
 
 type Props = { recipient: Identity; onRemoveHandler: Function };
 
@@ -8,12 +8,12 @@ const RecipientBag: React.FC<Props> = (props) => {
   return (
     <div
       className="
-        rounded
-        bg-red-200
+        rounded-3xl
+        bg-gray-200
         py-1
         px-2
         text-sm
-        text-red-500
+        text-gray-500
         flex
         flex-row
         items-center
@@ -22,11 +22,11 @@ const RecipientBag: React.FC<Props> = (props) => {
       "
     >
       <button type="button" onClick={() => onRemoveHandler(recipient)}>
-        <XCircleIcon className="w-6 h-6 mr-2" />
+        <XIcon className="w-4 h-4 mr-1" />
       </button>
       <span className="font-semibold">@{recipient}</span>
     </div>
   );
 };
 
-export default RecipientBag;
+export default memo(RecipientBag);
