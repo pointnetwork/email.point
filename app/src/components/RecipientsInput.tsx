@@ -92,7 +92,7 @@ const RecipientsInput: React.FC<{
   );
 
   return (
-    <label className="block text-sm mb-5">
+    <label className="block text-sm mb-5 w-full">
       <span className="text-gray-700 dark:text-gray-400 mb-2">{label}</span>
       <div className="flex flex-col w-full">
         <div

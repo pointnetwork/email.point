@@ -135,6 +135,7 @@ const Compose: React.FC<{}> = () => {
 
   const [recipients, setRecipients] = useState<Identity[]>([]);
   const [ccRecipients, setCCRecipients] = useState<Identity[]>([]);
+  const [bccRecipients, setBCCRecipients] = useState<Identity[]>([]);
   const [subject, setSubject] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [attachments, setAttachments] = useState<File[]>([]);
@@ -159,6 +160,8 @@ const Compose: React.FC<{}> = () => {
   const removeRecipient = useCallback(removeRecipientFactory(setRecipients), [recipients]);
   const addCCRecipient = useCallback(addRecipientFactory(setCCRecipients), [ccRecipients]);
   const removeCCRecipient = useCallback(removeRecipientFactory(setCCRecipients), [ccRecipients]);
+  const addBCCRecipient = useCallback(addRecipientFactory(setBCCRecipients), [bccRecipients]);
+  const removeBCCRecipient = useCallback(removeRecipientFactory(setBCCRecipients), [bccRecipients]);
 
   async function setReplyEmailData(replyToEmailId: string) {
     try {
@@ -398,61 +401,78 @@ const Compose: React.FC<{}> = () => {
           removeRecipient={removeRecipient}
         />
 
-        <div className="flex flex-row mb-5 justify-end">
-          <div className="inline-flex rounded-md shadow-sm" role="group">
-            {[
-              { leyend: 'CC', onClickHandler: () => setShowCC(!showCC) },
-              { leyend: 'BCC', onClickHandler: () => setShowBCC(!showBCC) },
-            ].map(({ leyend, onClickHandler }, index) => (
-              <button
-                onClick={onClickHandler}
-                type="button"
-                className={`
-                  py-2 
-                  px-4 
-                  text-sm 
-                  font-medium 
-                  text-gray-900 
-                  bg-white 
-                  border 
-                  border-gray-200 
-                  hover:bg-gray-100 
-                  hover:text-green-600 
-                  focus:z-10 focus:ring-2 
-                  focus:ring-green-600 
-                  focus:text-green-600 
-                  dark:bg-gray-700 
-                  dark:border-gray-600 
-                  dark:text-white 
-                  dark:hover:text-white 
-                  dark:hover:bg-gray-600 
-                  dark:focus:ring-green-400 
-                  dark:focus:text-white
-                  focus:border-green-400 
-                  focus:outline-nonemb-5
-                  focus:shadow-outline-green 
-                  dark:focus:shadow-outline-gray
-                  ${index === 0 ? 'rounded-l-lg border-r-0' : 'rounded-r-lg'}
-                `}
-              >
-                {leyend}
-              </button>
-            ))}
+        <div className="flex flex-col-reverse md:flex-row items-center">
+          <div className="flex flex-col flex-1 md:mr-5 w-full md:w-auto">
+            {showCC || ccRecipients.length ? (
+              <RecipientsInput
+                label="CC"
+                placeholder="Email CC Recipient Identities"
+                recipients={ccRecipients}
+                disabled={loading}
+                addRecipient={addCCRecipient}
+                removeRecipient={removeCCRecipient}
+              />
+            ) : (
+              ''
+            )}
+            {showBCC || bccRecipients.length ? (
+              <RecipientsInput
+                label="BCC"
+                placeholder="Email BCC Recipient Identities"
+                recipients={bccRecipients}
+                disabled={loading}
+                addRecipient={addBCCRecipient}
+                removeRecipient={removeBCCRecipient}
+              />
+            ) : (
+              ''
+            )}
+          </div>
+          <div className="flex flex-start w-full md:w-auto mb-5 md:mb-0">
+            <div className="rounded-md shadow-sm w-full md:w-auto flex flex-row" role="group">
+              {[
+                { leyend: 'CC', shown: showCC, onClickHandler: () => setShowCC(!showCC) },
+                { leyend: 'BCC', shown: showBCC, onClickHandler: () => setShowBCC(!showBCC) },
+              ].map(({ leyend, onClickHandler, shown }, index) => (
+                <button
+                  onClick={onClickHandler}
+                  type="button"
+                  className={`
+                    py-2 
+                    px-4
+                    flex-1
+                    text-sm 
+                    font-medium 
+                    text-gray-900 
+                    bg-white 
+                    border 
+                    border-gray-200 
+                    hover:bg-gray-100 
+                    hover:text-green-600 
+                    focus:z-10 focus:ring-2 
+                    focus:ring-green-600 
+                    focus:text-green-600 
+                    dark:bg-gray-700 
+                    dark:border-gray-600 
+                    dark:text-white 
+                    dark:hover:text-white 
+                    dark:hover:bg-gray-600 
+                    dark:focus:ring-green-400 
+                    dark:focus:text-white
+                    focus:border-green-400 
+                    focus:outline-nonemb-5
+                    focus:shadow-outline-green 
+                    dark:focus:shadow-outline-gray
+                    ${index === 0 ? 'rounded-l-lg border-r-0' : 'rounded-r-lg'}
+                    ${shown ? 'bg-gray-100 dark:bg-gray-700' : ''}
+                  `}
+                >
+                  {leyend}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-
-        {showCC || ccRecipients.length ? (
-          <RecipientsInput
-            label="CC"
-            placeholder="Email CC Recipient Identities"
-            recipients={ccRecipients}
-            disabled={loading}
-            addRecipient={addCCRecipient}
-            removeRecipient={removeCCRecipient}
-          />
-        ) : (
-          ''
-        )}
 
         <label className="block text-sm">
           <span className="text-gray-700 dark:text-gray-400">Subject</span>
