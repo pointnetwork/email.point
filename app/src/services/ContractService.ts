@@ -12,21 +12,10 @@ type ContractGetEventsParams = {
   filter: Record<string, any>;
 };
 
-type Event = {
-  address: string;
-  blockHash: string;
-  blockNumber: number;
+type ContractSubscribeEventParams = {
+  contract: string;
   event: string;
-  id: string;
-  logIndex: number;
-  returnValues: Record<any, any>;
-};
-
-type ContractCallResponse = {
-  blockHash: string;
-  blockNumber: number;
-  cumulativeGasUsed: number;
-  events: Record<string, Event>;
+  handler: Function;
 };
 
 export async function callContract({ contract, method, params }: ContractCallParams): Promise<any> {
@@ -62,4 +51,71 @@ export async function getEvents({
     filter,
   });
   return response;
+}
+
+class Subscription {
+  subscription: any;
+  running: boolean = false;
+  unsubscribed: Boolean = false;
+  observers: Function[] = [];
+
+  constructor(subscriptionContractEvent: Function) {
+    this.subscription = subscriptionContractEvent;
+  }
+
+  async runSubscriptionLoop() {
+    if (this.running) {
+      return;
+    }
+
+    this.running = true;
+
+    do {
+      const _payload = await this.subscription();
+      this.observers.forEach((handler) => {
+        handler(_payload);
+      });
+    } while (!this.unsubscribed);
+  }
+
+  async subscribe(handler: Function) {
+    this.observers.push(handler);
+    this.runSubscriptionLoop();
+  }
+
+  unsubscribe(handler: Function) {
+    const index = this.observers.indexOf(handler);
+    if (index === -1) {
+      return;
+    }
+
+    this.observers.splice(index, 1);
+
+    if (!this.observers.length) {
+      this.unsubscribed = true;
+      this.running = false;
+      this.subscription.unsubscribe();
+    }
+  }
+}
+
+const subscriptions: Record<string, Record<string, Subscription>> = {};
+export async function subscribe({
+  contract,
+  event,
+  handler,
+}: ContractSubscribeEventParams): Promise<Subscription> {
+  if (!subscriptions[contract]) {
+    subscriptions[contract] = {};
+  }
+  let subscription = subscriptions[contract][event];
+  if (!subscription) {
+    const subscriptionContractEvent = await windowWithPoint.point.contract.subscribe({
+      contract,
+      event,
+    });
+    subscription = subscriptions[contract][event] = new Subscription(subscriptionContractEvent);
+  }
+  subscription.subscribe(handler);
+  return subscription;
 }

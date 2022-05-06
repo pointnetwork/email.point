@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { InboxIcon, BanIcon, CheckIcon, RefreshIcon } from '@heroicons/react/outline';
 
 import * as EmailService from '@services/EmailService';
+import * as ContractService from '@services/ContractService';
 
 import { actions as uiActions } from '@store/modules/ui';
 import { selectors as identitySelectors } from '@store/modules/identity';
@@ -118,7 +119,29 @@ const TableView: React.FC<Props> = (props) => {
     if (!walletAddress) {
       return;
     }
+
     refreshTable();
+
+    const onRecipientAddedHandler = (_payload: any) => {
+      if (_payload.returnValues.recipient === walletAddress) {
+        refreshTable();
+      }
+    };
+
+    let subscription: any;
+    ContractService.subscribe({
+      contract: 'PointEmail',
+      event: 'RecipientAdded',
+      handler: onRecipientAddedHandler,
+    }).then((_subscription) => {
+      subscription = _subscription;
+    });
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe(onRecipientAddedHandler);
+      }
+    };
   }, [walletAddress]);
 
   return (

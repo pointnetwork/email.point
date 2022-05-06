@@ -282,7 +282,7 @@ const Compose: React.FC<{}> = () => {
       ],
     });
 
-    const newEmailId = events['EmailCreated'].returnValues.id;
+    const newEmailId = (events['EmailCreated'] as any).returnValues.id;
 
     await Promise.all(
       recipientsData.map(({ address }, index) =>
