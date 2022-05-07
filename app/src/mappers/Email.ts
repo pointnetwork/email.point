@@ -7,6 +7,7 @@ export default async function EmailMapper(inputData: EmailInputData): Promise<Em
     id,
     from,
     to,
+    cc,
     createdAt,
     encryptedMessageId,
     encryptedSymmetricObj,
@@ -15,8 +16,7 @@ export default async function EmailMapper(inputData: EmailInputData): Promise<Em
     read,
   ] = inputData;
 
-  const [fromIdentity, toIdentity, encryptedData] = await Promise.all([
-    IdentityService.ownerToIdentity(from),
+  const [fromIdentity, encryptedData] = await Promise.all([
     IdentityService.ownerToIdentity(from),
     StorageService.getString(encryptedMessageId),
   ]);
@@ -38,7 +38,7 @@ export default async function EmailMapper(inputData: EmailInputData): Promise<Em
     from,
     fromIdentity,
     to,
-    toIdentity,
+    cc,
     encryptedMessageId,
     encryptedSymmetricObj,
     createdAt: createdAt * 1000,
