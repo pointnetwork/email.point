@@ -1,9 +1,5 @@
 const windowWithPoint = window as unknown as WindowWithPoint;
 
-type Owner = string;
-type Identity = string;
-type PublicKey = string;
-
 export async function identityToOwner(identity: Identity): Promise<Owner> {
   const {
     data: { owner },
@@ -29,4 +25,15 @@ export async function ownerToIdentity(address: Address): Promise<Identity> {
     data: { identity },
   } = await windowWithPoint.point.identity.ownerToIdentity({ owner: address });
   return identity;
+}
+
+export async function ownersToIdentities(
+  addresses: Address[]
+): Promise<Record<Address, Identity | undefined>> {
+  const response = await Promise.allSettled(addresses.map(ownerToIdentity));
+  return addresses.reduce((identities: Record<Address, Identity>, address: Address, index) => {
+    const { value } = response[index] as PromiseFulfilledResult<string>;
+    identities[address] = value;
+    return identities;
+  }, {});
 }

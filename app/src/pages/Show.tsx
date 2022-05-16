@@ -10,11 +10,13 @@ import { getEmailData } from '@services/EmailService';
 import * as WalletService from '@services/WalletService';
 import * as StorageService from '@services/StorageService';
 import * as EmailService from '@services/EmailService';
+import * as IdentityService from '@services/IdentityService';
 
 import { actions as uiActions } from '@store/modules/ui';
 
 import RedirectWithTimeout from '@components/RedirectWithTimeout';
 import Spinner from '@components/Spinner';
+import IdentitToComposeViewButton from '@components/IdentityToComposeViewButton';
 
 type Attachment = {
   name: string;
@@ -122,10 +124,49 @@ const Attachment: React.FC<{ attachment: Attachment }> = (props) => {
   );
 };
 
+const IdentitiesListRow: React.FC<{ identities: Record<Address, Identity | undefined> }> = (
+  props
+) => {
+  const { identities } = props;
+  return (
+    <div
+      className="
+        text-sm
+        mb-2
+      "
+    >
+      <span className="font-bold">To:</span>
+      <span
+        className="
+          text-gray-600
+          ml-1 
+        "
+      >
+        {Object.values(identities).map((identity, index) => {
+          let element;
+          if (!identity) {
+            element = <span>Invalid</span>;
+          } else {
+            element = <IdentitToComposeViewButton identity={identity} />;
+          }
+          return (
+            <>
+              {index > 0 && ', '}
+              {element}
+            </>
+          );
+        })}
+      </span>
+    </div>
+  );
+};
+
 const Show: React.FC<{}> = () => {
   const [emailData, setEmailData] = useState<any>();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState<boolean>(true);
+  const [toIdentities, setToIdentities] = useState<Record<Address, Identity | undefined>>({});
+  const [ccIdentities, setCCIdentities] = useState<Record<Address, Identity | undefined>>({});
 
   const emailId = searchParams.get('id');
 
@@ -159,6 +200,24 @@ const Show: React.FC<{}> = () => {
         setLoading(false);
       });
   }, [emailId]);
+
+  useEffect(() => {
+    if (!emailData) {
+      return;
+    }
+    const { to, cc } = emailData;
+    if (to.length) {
+      IdentityService.ownersToIdentities(to).then((identities) => {
+        setToIdentities(identities);
+      });
+    }
+
+    if (cc.length) {
+      IdentityService.ownersToIdentities(cc).then((identities) => {
+        setCCIdentities(identities);
+      });
+    }
+  }, [emailData]);
 
   return (
     <>
@@ -201,7 +260,7 @@ const Show: React.FC<{}> = () => {
               "
             >
               <div className="text-sm">
-                <span className="font-bold">@{emailData.fromIdentity}</span>
+                <span className="font-bold">From:</span>
                 <span
                   className="
                     text-gray-600
@@ -209,13 +268,34 @@ const Show: React.FC<{}> = () => {
                     text-sm
                   "
                 >
+                  @{emailData.fromIdentity}&nbsp;
                   {`<${emailData.from}>`}
                 </span>
               </div>
-              <div className="text-gray-600 text-sm mt-2 md:mt-0">
-                {dayjs(emailData.createdAt).format('MMMM DD, hh:mm')}
+              <div className="text-sm mt-2 md:mt-0">
+                <span className="font-bold">Date:</span>
+                <span
+                  className="
+                    text-gray-600
+                    ml-2
+                    text-sm
+                  "
+                >
+                  {dayjs(emailData.createdAt).format('MMMM DD, hh:mm')}
+                </span>
               </div>
             </div>
+            {toIdentities && Object.keys(toIdentities).length ? (
+              <IdentitiesListRow identities={toIdentities} />
+            ) : (
+              ''
+            )}
+            {ccIdentities && Object.keys(ccIdentities).length ? (
+              <IdentitiesListRow identities={ccIdentities} />
+            ) : (
+              ''
+            )}
+
             <div
               className="
                 text-sm
@@ -228,16 +308,16 @@ const Show: React.FC<{}> = () => {
               <span
                 className="
                   text-gray-600
-                  ml-1
-                  
+                  ml-1 
                 "
               >
                 {emailData.encryptedMessageId}
               </span>
             </div>
+            <div className="border-t border-gray-200 mt-2 mb-2"></div>
             <div className="mt-5 whitespace-pre-line">{emailData.message.split('| On')}</div>
             {emailData.attachments ? (
-              <div className="flex flex-row flex-wrap mt-5 border-t-2 border-gray-200 pt-2 text-sm">
+              <div className="flex flex-row flex-wrap mt-5 border-t border-gray-200 pt-2 text-sm">
                 {emailData.attachments.map((attachment: Attachment, index: number) => (
                   <Attachment key={index} attachment={attachment} />
                 ))}

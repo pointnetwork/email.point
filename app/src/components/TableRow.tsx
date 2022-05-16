@@ -7,6 +7,7 @@ import dayjs from 'dayjs';
 import { actions as uiActions } from '@store/modules/ui';
 
 import Spinner from '@components/Spinner';
+import IdentitToComposeViewButton from '@components/IdentityToComposeViewButton';
 
 type TableRowProps = {
   email: Email;
@@ -19,11 +20,6 @@ const TableRow: React.FC<TableRowProps> = (props) => {
   const [loading, setLoading] = useState<boolean>(false);
 
   const dispatch = useDispatch();
-
-  function sendToSender(event: React.MouseEvent<HTMLElement>) {
-    event.stopPropagation();
-    window.location.href = `/compose?to=${email.fromIdentity}`;
-  }
 
   function markAsImportant(event: React.MouseEvent<HTMLElement>) {
     event.stopPropagation();
@@ -105,12 +101,11 @@ const TableRow: React.FC<TableRowProps> = (props) => {
         </button>
       </td>
       <td className="px-4 py-3 text-sm align-middle">
-        <span
-          onClick={sendToSender}
-          className="w-full cursor-pointer hover:underline hover:font-semibold"
-        >
-          @{email.fromIdentity}
-        </span>
+        {email.fromIdentity ? (
+          <IdentitToComposeViewButton identity={email.fromIdentity} className="w-full text-left" />
+        ) : (
+          ''
+        )}
       </td>
       <td className="px-4 py-3 text-sm align-middle">
         <p className="whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">{email.subject}</p>
