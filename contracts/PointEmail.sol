@@ -385,7 +385,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         return result;
     }
 
-    function initialize() public initializer {
+    function initialize() public initializer onlyProxy {
         __Ownable_init();
         __UUPSUpgradeable_init();
     }
