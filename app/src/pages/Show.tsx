@@ -124,10 +124,11 @@ const Attachment: React.FC<{ attachment: Attachment }> = (props) => {
   );
 };
 
-const IdentitiesListRow: React.FC<{ identities: Record<Address, Identity | undefined> }> = (
-  props
-) => {
-  const { identities } = props;
+const IdentitiesListRow: React.FC<{
+  identities: Record<Address, Identity | undefined>;
+  title: string;
+}> = (props) => {
+  const { identities, title } = props;
   return (
     <div
       className="
@@ -135,7 +136,7 @@ const IdentitiesListRow: React.FC<{ identities: Record<Address, Identity | undef
         mb-2
       "
     >
-      <span className="font-bold">To:</span>
+      <span className="font-bold">{title}:</span>
       <span
         className="
           text-gray-600
@@ -286,12 +287,12 @@ const Show: React.FC<{}> = () => {
               </div>
             </div>
             {toIdentities && Object.keys(toIdentities).length ? (
-              <IdentitiesListRow identities={toIdentities} />
+              <IdentitiesListRow identities={toIdentities} title="To" />
             ) : (
               ''
             )}
             {ccIdentities && Object.keys(ccIdentities).length ? (
-              <IdentitiesListRow identities={ccIdentities} />
+              <IdentitiesListRow identities={ccIdentities} title="Cc" />
             ) : (
               ''
             )}
