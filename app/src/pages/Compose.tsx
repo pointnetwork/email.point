@@ -280,10 +280,10 @@ const Compose: React.FC<{}> = () => {
     }
 
     // Get sender data
-    let fromEncryptedAttachments;
-    if (attachments) {
-      fromEncryptedAttachments = getEncryptedAttachments(attachments, publicKey!);
-    }
+    const fromEncryptedAttachments: EncryptedAttachment[] = await getEncryptedAttachments(
+      attachments,
+      publicKey!
+    );
 
     const fromEncryptedData = await encryptAndSaveData(
       publicKey!,
