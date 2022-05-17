@@ -15,24 +15,24 @@ type Address = string;
 type Identity = string;
 
 type EmailInputData = [
-  number,
-  string,
-  string,
-  number,
-  string,
-  string,
-  boolean,
-  boolean,
-  boolean,
-  string
+  number, // id
+  string, // from
+  string[], // to
+  string[], // cc
+  number, // createdAt
+  string, // encryptedMessageId
+  string, // encryptedSymmetricObj
+  boolean, // important
+  boolean, // deleted
+  boolean // read
 ];
 
 type Email = {
   id: number;
   from: string;
   fromIdentity?: string;
-  to: string;
-  toIdentity?: string;
+  to: string[];
+  cc: string[];
   subject?: string;
   message?: string;
   encryptedMessageId: string;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { XCircleIcon } from '@heroicons/react/outline';
 
 const AttachmentBag: React.FC<{ attachment: File; onRemoveHandler: Function }> = (props) => {
@@ -26,4 +26,4 @@ const AttachmentBag: React.FC<{ attachment: File; onRemoveHandler: Function }> =
   );
 };
 
-export default AttachmentBag;
+export default memo(AttachmentBag);
