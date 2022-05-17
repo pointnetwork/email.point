@@ -307,22 +307,23 @@ const Compose: React.FC<{}> = () => {
     const newEmailId = events['EmailCreated'].returnValues.id;
 
     // Add recipients
-    const response = await Promise.allSettled([
-      ...recipients.map((recipient) =>
-        addRecipientToEmail(newEmailId, recipient, attachments, false)
-      ),
-      ...ccRecipients.map((recipient) =>
-        addRecipientToEmail(newEmailId, recipient, attachments, true)
-      ),
-    ]);
-
     const rejectedRecipients: string[] = [];
-    const totalRecipients = [...recipients, ...ccRecipients];
-    response.forEach(({ status }, index) => {
-      if (status === 'rejected') {
-        rejectedRecipients.push(totalRecipients[index]);
+
+    for (let recipient of recipients) {
+      try {
+        await addRecipientToEmail(newEmailId, recipient, attachments, false);
+      } catch (error) {
+        rejectedRecipients.push(recipient);
       }
-    });
+    }
+
+    for (let ccRecipient of ccRecipients) {
+      try {
+        await addRecipientToEmail(newEmailId, ccRecipient, attachments, true);
+      } catch (error) {
+        rejectedRecipients.push(ccRecipient);
+      }
+    }
 
     if (rejectedRecipients.length) {
       dispatch(
