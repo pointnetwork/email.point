@@ -107,6 +107,32 @@ describe('PointEmail', () => {
         );
       });
 
+      it('user1 should be able to be included as recipient', async () => {
+        await addRecipient(
+          email1Id,
+          user1.address,
+          RECIPIENTS[1].ENCRYPTED_ID,
+          RECIPIENTS[1].ENCRYPTED_CONTENT,
+          false
+        );
+        const email: EmailWithMetaData = await contract.connect(user1).getEmailById(email1Id);
+        expect(email.from).to.equal(user1.address);
+        expect(email.to).includes(user1.address);
+      });
+
+      it('user1 should be able to be included as cc recipient', async () => {
+        await addRecipient(
+          email1Id,
+          user1.address,
+          RECIPIENTS[1].ENCRYPTED_ID,
+          RECIPIENTS[1].ENCRYPTED_CONTENT,
+          true
+        );
+        const email: EmailWithMetaData = await contract.connect(user1).getEmailById(email1Id);
+        expect(email.from).to.equal(user1.address);
+        expect(email.cc).includes(user1.address);
+      });
+
       it(`user4 should be added as cc`, async () => {
         const email: EmailWithMetaData = await contract.connect(user4).getEmailById(email1Id);
         expect(email.from).to.not.equal(user4.address);
@@ -114,26 +140,60 @@ describe('PointEmail', () => {
         expect(email.cc.includes(user4.address)).to.equal(true);
       });
 
-      it('user5 should be able to be added as both cc and to', async () => {
-        await addRecipient(
-          email1Id,
-          user5.address,
-          RECIPIENTS[1].ENCRYPTED_ID,
-          RECIPIENTS[1].ENCRYPTED_CONTENT,
-          false
-        );
-        await addRecipient(
-          email1Id,
-          user5.address,
-          RECIPIENTS[1].ENCRYPTED_ID,
-          RECIPIENTS[1].ENCRYPTED_CONTENT,
-          true
-        );
+      describe('user5 as cc and to', () => {
+        before(async () => {
+          await addRecipient(
+            email1Id,
+            user5.address,
+            RECIPIENTS[1].ENCRYPTED_ID,
+            RECIPIENTS[1].ENCRYPTED_CONTENT,
+            false
+          );
+          await addRecipient(
+            email1Id,
+            user5.address,
+            RECIPIENTS[1].ENCRYPTED_ID,
+            RECIPIENTS[1].ENCRYPTED_CONTENT,
+            true
+          );
+        });
 
-        const email: EmailWithMetaData = await contract.connect(user5).getEmailById(email1Id);
-        expect(email.from).to.not.equal(user5.address);
-        expect(email.to.includes(user5.address)).to.equal(true);
-        expect(email.cc.includes(user5.address)).to.equal(true);
+        it('user5 should be able to be added as both cc and to', async () => {
+          const email: EmailWithMetaData = await contract.connect(user5).getEmailById(email1Id);
+          expect(email.from).to.not.equal(user5.address);
+          expect(email.to.includes(user5.address)).to.equal(true);
+          expect(email.cc.includes(user5.address)).to.equal(true);
+        });
+
+        it('user5 should not be able to be added again as cc', async () => {
+          try {
+            await addRecipient(
+              email1Id,
+              user5.address,
+              RECIPIENTS[1].ENCRYPTED_ID,
+              RECIPIENTS[1].ENCRYPTED_CONTENT,
+              true
+            );
+            expect(false).to.equal(false);
+          } catch (error: any) {
+            expect(error.message).to.contains('Recipient already in email (cc)');
+          }
+        });
+
+        it('user5 should not be able to be added again as to', async () => {
+          try {
+            await addRecipient(
+              email1Id,
+              user5.address,
+              RECIPIENTS[1].ENCRYPTED_ID,
+              RECIPIENTS[1].ENCRYPTED_CONTENT,
+              false
+            );
+            expect(false).to.equal(false);
+          } catch (error: any) {
+            expect(error.message).to.contains('Recipient already in email (to)');
+          }
+        });
       });
     });
 
