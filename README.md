@@ -14,7 +14,7 @@ Run ```yarn``` in the parent directory
 
 Run this command from the [pointnetwork](https://github.com/pointnetwork/pointnetwork) folder:
 ```sh
-BLOCKCHAIN_HOST=localhost point-deploy ../zapps/email.point --contracts
+point-deploy ../zapps/email.point --contracts
 ```
 
 ## Compile the zApp code
