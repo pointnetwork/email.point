@@ -11,9 +11,14 @@ const Inbox: React.FC<{}> = () => {
   const walletAddress = useSelector(identitySelectors.getWalletAddress);
   const identity = useSelector(identitySelectors.getIdentity);
 
+  let title = 'Sent';
+  if (identity) {
+    title = `Sent by @${identity}`;
+  }
+
   return (
     <TableView
-      title={`Sent by @${identity}`}
+      title={title}
       getTableItems={() => {
         return ContractService.callContract({
           contract: 'PointEmail',
