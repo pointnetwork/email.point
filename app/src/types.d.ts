@@ -2,8 +2,6 @@ type WindowWithPoint = Window & {
   point: any;
 };
 
-type PublicKey = string;
-
 type EncryptedData = {
   encryptedMessage: string;
   encryptedSymmetricObj: Object;
@@ -11,8 +9,9 @@ type EncryptedData = {
 };
 
 type Address = string;
-
+type Owner = string;
 type Identity = string;
+type PublicKey = string;
 
 type EmailInputData = [
   number, // id
