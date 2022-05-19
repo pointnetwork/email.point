@@ -14,7 +14,7 @@ export async function getEmailData(emailId: string): Promise<Email> {
 }
 
 export async function deleteEmail(emailId: number, deleted: boolean = true): Promise<void> {
-  ContractService.sendContract({
+  await ContractService.sendContract({
     contract: 'PointEmail',
     method: 'deleteEmail',
     params: [emailId, deleted],

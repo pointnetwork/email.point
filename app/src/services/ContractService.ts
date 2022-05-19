@@ -109,7 +109,7 @@ export async function subscribe({
     subscriptions[contract] = {};
   }
   let subscription = subscriptions[contract][event];
-  if (!subscription) {
+  if (!subscription || subscription.unsubscribed) {
     const subscriptionContractEvent = await windowWithPoint.point.contract.subscribe({
       contract,
       event,

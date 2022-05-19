@@ -71,13 +71,11 @@ const TableView: React.FC<Props> = (props) => {
 
     try {
       setDeleting(true);
-      const deleteMessagesPromises: Promise<void>[] = [];
-      emails.forEach((email) => {
+      for (let email of emails) {
         if (email.checked) {
-          deleteMessagesPromises.push(EmailService.deleteEmail(email.id, !email.deleted));
+          await EmailService.deleteEmail(email.id, !email.deleted);
         }
-      });
-      await Promise.all(deleteMessagesPromises);
+      }
       refreshTable();
       setDeleting(false);
     } catch (error) {
@@ -122,13 +120,13 @@ const TableView: React.FC<Props> = (props) => {
 
     refreshTable();
 
+    let subscription: any;
     const onRecipientAddedHandler = (_payload: any) => {
       if (_payload.returnValues.recipient === walletAddress) {
         refreshTable();
       }
     };
 
-    let subscription: any;
     ContractService.subscribe({
       contract: 'PointEmail',
       event: 'RecipientAdded',
