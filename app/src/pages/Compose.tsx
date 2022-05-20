@@ -304,7 +304,7 @@ const Compose: React.FC<{}> = () => {
       ],
     });
 
-    const newEmailId = events['EmailCreated'].returnValues.id;
+    const newEmailId = (events['EmailCreated'] as any).returnValues.id;
 
     // Add recipients
     const rejectedRecipients: string[] = [];

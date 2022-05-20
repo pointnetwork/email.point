@@ -43,3 +43,25 @@ type Email = {
   read?: boolean;
   attachments?: Array;
 };
+
+type Event = {
+  address: string;
+  blockHash: string;
+  blockNumber: number;
+  event: string;
+  id: string;
+  logIndex: number;
+  returnValues: Record<any, any>;
+};
+
+type ContractCallResponse = {
+  blockHash: string;
+  blockNumber: number;
+  cumulativeGasUsed: number;
+  events: Record<string, Event>;
+};
+
+type EventSubscription = {
+  unsubscribe: Function;
+  subscribe: Function;
+};

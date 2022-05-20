@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { InboxIcon, BanIcon, CheckIcon, RefreshIcon } from '@heroicons/react/outline';
 
 import * as EmailService from '@services/EmailService';
+import * as ContractService from '@services/ContractService';
 
 import { actions as uiActions } from '@store/modules/ui';
 import { selectors as identitySelectors } from '@store/modules/identity';
@@ -70,13 +71,11 @@ const TableView: React.FC<Props> = (props) => {
 
     try {
       setDeleting(true);
-      const deleteMessagesPromises: Promise<void>[] = [];
-      emails.forEach((email) => {
+      for (let email of emails) {
         if (email.checked) {
-          deleteMessagesPromises.push(EmailService.deleteEmail(email.id, !email.deleted));
+          await EmailService.deleteEmail(email.id, !email.deleted);
         }
-      });
-      await Promise.all(deleteMessagesPromises);
+      }
       refreshTable();
       setDeleting(false);
     } catch (error) {
@@ -118,7 +117,29 @@ const TableView: React.FC<Props> = (props) => {
     if (!walletAddress) {
       return;
     }
+
     refreshTable();
+
+    let subscription: any;
+    const onRecipientAddedHandler = (_payload: any) => {
+      if (_payload.returnValues.recipient === walletAddress) {
+        refreshTable();
+      }
+    };
+
+    ContractService.subscribe({
+      contract: 'PointEmail',
+      event: 'RecipientAdded',
+      handler: onRecipientAddedHandler,
+    }).then((_subscription) => {
+      subscription = _subscription;
+    });
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe(onRecipientAddedHandler);
+      }
+    };
   }, [walletAddress]);
 
   return (
