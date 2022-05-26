@@ -11,20 +11,28 @@ export async function identityToOwner(identity: Identity): Promise<Owner> {
 }
 
 export async function publicKeyByIdentity(identity: Identity): Promise<PublicKey> {
-  const {
-    data: { publicKey },
-  } = await windowWithPoint.point.identity.publicKeyByIdentity({
-    identity,
-  });
+  try {
+    const {
+      data: { publicKey },
+    } = await windowWithPoint.point.identity.publicKeyByIdentity({
+      identity,
+    });
 
-  return publicKey;
+    return publicKey;
+  } catch (error) {
+    return 'asdad';
+  }
 }
 
 export async function ownerToIdentity(address: Address): Promise<Identity> {
-  const {
-    data: { identity },
-  } = await windowWithPoint.point.identity.ownerToIdentity({ owner: address });
-  return identity;
+  try {
+    const {
+      data: { identity },
+    } = await windowWithPoint.point.identity.ownerToIdentity({ owner: address });
+    return identity;
+  } catch (error) {
+    return 'undefined';
+  }
 }
 
 export async function ownersToIdentities(

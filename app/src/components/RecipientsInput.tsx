@@ -2,12 +2,11 @@ import React, { useState, useCallback, memo } from 'react';
 import { UserIcon } from '@heroicons/react/outline';
 import { useDispatch } from 'react-redux';
 import { actions as uiActions } from '@store/modules/ui';
+import * as ethers from 'ethers';
 
 import * as IdentityService from '@services/IdentityService';
 
 import RecipientBag from '@components/RecipientBag';
-
-import CONSTANTS from '../constants';
 
 const RecipientsInput: React.FC<{
   label: string;
@@ -30,7 +29,7 @@ const RecipientsInput: React.FC<{
 
     IdentityService.identityToOwner(newRecipient)
       .then((owner) => {
-        if (owner === CONSTANTS.AddressZero) {
+        if (owner === ethers.constants.AddressZero) {
           dispatch(
             uiActions.showErrorNotification({
               message: `${newRecipient} is an invalid recipient identity.`,

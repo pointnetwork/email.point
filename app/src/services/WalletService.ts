@@ -1,3 +1,5 @@
+import * as ethers from 'ethers';
+
 const windowWithPoint = window as unknown as WindowWithPoint;
 
 export async function encryptData(publicKey: PublicKey, data: string): Promise<EncryptedData> {
@@ -26,8 +28,12 @@ export async function decryptData(
 }
 
 export async function getAddress(): Promise<Address> {
-  const {
-    data: { address },
-  } = await windowWithPoint.point.wallet.address();
-  return address;
+  try {
+    const {
+      data: { address },
+    } = await windowWithPoint.point.wallet.address();
+    return address;
+  } catch (error) {
+    return ethers.constants.AddressZero;
+  }
 }

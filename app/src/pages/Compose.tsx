@@ -8,6 +8,7 @@ import { UploadIcon } from '@heroicons/react/solid';
 import Spinner from '@components/Spinner';
 import AttachmentBag from '@components/AttachmentBag';
 import RecipientsInput from '@components/RecipientsInput';
+import ContentEditor from '@components/editor/ContentEditor';
 
 import { getEmailData } from '@services/EmailService';
 import * as ContractService from '@services/ContractService';
@@ -18,7 +19,7 @@ import * as WalletService from '@services/WalletService';
 import { actions as uiActions } from '@store/modules/ui';
 import { selectors as identitySelectors } from '@store/modules/identity';
 
-import CONSTANTS from '../constants';
+import * as ethers from 'ethers';
 import dayjs from 'dayjs';
 
 enum ERRORS {
@@ -136,22 +137,22 @@ const Compose: React.FC<{}> = () => {
   const [recipients, setRecipients] = useState<Identity[]>([]);
   const [ccRecipients, setCCRecipients] = useState<Identity[]>([]);
   const [subject, setSubject] = useState<string>('');
-  const [message, setMessage] = useState<string>('');
+  const [message, setMessage] = useState<any[] | string>([]);
   const [attachments, setAttachments] = useState<File[]>([]);
 
   function subjectChangedHandler(event: React.ChangeEvent<HTMLInputElement>) {
     setSubject(event.target.value);
   }
 
-  function messageChangedHandler(event: React.ChangeEvent<HTMLTextAreaElement>) {
-    setMessage(event.target.value);
+  function messageChangedHandler(value: any) {
+    setMessage(value);
   }
 
   function cleanForm() {
     setRecipients([]);
     setCCRecipients([]);
     setSubject('');
-    setMessage('');
+    setMessage([]);
     setAttachments([]);
   }
 
@@ -165,11 +166,13 @@ const Compose: React.FC<{}> = () => {
       const replyToEmail = await getEmailData(replyToEmailId);
       setRecipients([replyToEmail.fromIdentity!]);
       setSubject(`RE: ${replyToEmail.subject!}`);
+      /*
       setMessage(
         `\n\n| On ${dayjs(replyToEmail.createdAt).format('MMMM DD, YYYY hh:mm')} <@${
           replyToEmail.fromIdentity
         }> wrote:\n| ${replyToEmail.message!.split('\n').join('\n| ')}`
       );
+      */
       setTimeout(() => {
         messageInputRef.current!.focus();
         messageInputRef.current!.setSelectionRange(0, 0);
@@ -238,7 +241,7 @@ const Compose: React.FC<{}> = () => {
       IdentityService.publicKeyByIdentity(recipient),
     ]);
 
-    if (address === CONSTANTS.AddressZero) {
+    if (address === ethers.constants.AddressZero) {
       throw new Error('Invalid identity');
     }
 
@@ -408,6 +411,7 @@ const Compose: React.FC<{}> = () => {
               <button
                 onClick={onClickHandler}
                 type="button"
+                key={`button-${index}`}
                 className={`
                   py-2 
                   px-4 
@@ -492,13 +496,17 @@ const Compose: React.FC<{}> = () => {
 
         <label className="block mt-4 text-sm">
           <span className="text-gray-700 dark:text-gray-400">Message</span>
-          <textarea
+          <ContentEditor
             disabled={!!loading}
             required={true}
             ref={messageInputRef}
+            placeholder="Email message."
+            value={message}
+            onChange={messageChangedHandler}
             className="
               block 
-              w-full 
+              w-full
+              h-60 
               mt-1 
               mb-5
               text-sm
@@ -507,18 +515,13 @@ const Compose: React.FC<{}> = () => {
               dark:text-gray-300 
               dark:border-gray-600 
               dark:bg-gray-700 
-              form-textarea 
               focus:border-green-400 
               focus:outline-none 
               focus:shadow-outline-green 
               dark:focus:shadow-outline-gray
               whitespace-pre-line
             "
-            rows={10}
-            placeholder="Email message."
-            value={message}
-            onChange={messageChangedHandler}
-          ></textarea>
+          />
         </label>
         {attachments.length ? (
           <div className="text-sm flex flex-col">
