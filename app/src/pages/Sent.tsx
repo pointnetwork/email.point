@@ -6,14 +6,19 @@ import { selectors as identitySelectors } from '@store/modules/identity';
 import * as ContractService from '@services/ContractService';
 
 import TableView from '@components/TableView';
+import IdentitySpan from '@components/IdentitySpan';
 
 const Inbox: React.FC<{}> = () => {
   const walletAddress = useSelector(identitySelectors.getWalletAddress);
   const identity = useSelector(identitySelectors.getIdentity);
 
-  let title = 'Sent';
+  let title = <span>Sent</span>;
   if (identity) {
-    title = `Sent by @${identity}`;
+    title = (
+      <span>
+        Sent by <IdentitySpan identity={identity} />
+      </span>
+    );
   }
 
   return (

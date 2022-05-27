@@ -8,6 +8,7 @@ import { UploadIcon } from '@heroicons/react/solid';
 import Spinner from '@components/Spinner';
 import AttachmentBag from '@components/AttachmentBag';
 import RecipientsInput from '@components/RecipientsInput';
+import IdentitySpan from '@components/IdentitySpan';
 
 import { getEmailData } from '@services/EmailService';
 import * as ContractService from '@services/ContractService';
@@ -133,6 +134,8 @@ const Compose: React.FC<{}> = () => {
 
   const [searchParams] = useSearchParams();
 
+  const [isReply, setIsReply] = useState<Boolean>(false);
+  const [showRecipients, setShowRecipients] = useState<Boolean>(false);
   const [recipients, setRecipients] = useState<Identity[]>([]);
   const [ccRecipients, setCCRecipients] = useState<Identity[]>([]);
   const [subject, setSubject] = useState<string>('');
@@ -153,6 +156,7 @@ const Compose: React.FC<{}> = () => {
     setSubject('');
     setMessage('');
     setAttachments([]);
+    setIsReply(false);
   }
 
   const addRecipient = useCallback(addRecipientFactory(setRecipients), [recipients]);
@@ -163,6 +167,7 @@ const Compose: React.FC<{}> = () => {
   async function setReplyEmailData(replyToEmailId: string) {
     try {
       const replyToEmail = await getEmailData(replyToEmailId);
+      setIsReply(true);
       setRecipients([replyToEmail.fromIdentity!]);
       setSubject(`RE: ${replyToEmail.subject!}`);
       setMessage(
@@ -380,35 +385,55 @@ const Compose: React.FC<{}> = () => {
     [attachments]
   );
 
+  const onShowRecipientsHandler = (event: React.MouseEvent) => {
+    setShowRecipients(!showRecipients);
+  };
+
   return (
     <div className="container px-6 mx-auto grid">
       <h2 className="my-3 text-gray-700 dark:text-gray-200">
         <div className="text-2xl font-semibold">Compose</div>
-        <div>From: @{identity}</div>
+        {identity ? (
+          <div>
+            From: <IdentitySpan identity={identity} />
+          </div>
+        ) : (
+          ''
+        )}
       </h2>
       <form
         onSubmit={onSendHandler}
         className="px-4 py-3 mb-8 bg-white rounded-lg shadow-md dark:bg-gray-800"
       >
-        <RecipientsInput
-          label="To"
-          placeholder="Email Recipient Identities"
-          recipients={recipients}
-          disabled={loading}
-          addRecipient={addRecipient}
-          removeRecipient={removeRecipient}
-        />
+        <div className={`w-full flex justify-end py-3 ${isReply ? 'block' : 'hidden'}`}>
+          <button
+            className="underline text-blue-500 dark:text-blue-300 text-sm"
+            type="button"
+            onClick={onShowRecipientsHandler}
+          >
+            Recipients
+          </button>
+        </div>
+        <div className={!isReply || showRecipients ? 'block' : 'hidden'}>
+          <RecipientsInput
+            label="To"
+            placeholder="Email Recipient Identities"
+            recipients={recipients}
+            disabled={loading}
+            addRecipient={addRecipient}
+            removeRecipient={removeRecipient}
+          />
 
-        <div className="flex flex-row mb-5 justify-end">
-          <div className="inline-flex rounded-md shadow-sm" role="group">
-            {[
-              { leyend: 'CC', onClickHandler: () => setShowCC(!showCC) },
-              { leyend: 'BCC', onClickHandler: () => setShowBCC(!showBCC) },
-            ].map(({ leyend, onClickHandler }, index) => (
-              <button
-                onClick={onClickHandler}
-                type="button"
-                className={`
+          <div className="flex flex-row mb-5 justify-end">
+            <div className="inline-flex rounded-md shadow-sm" role="group">
+              {[
+                { leyend: 'CC', onClickHandler: () => setShowCC(!showCC) },
+                { leyend: 'BCC', onClickHandler: () => setShowBCC(!showBCC) },
+              ].map(({ leyend, onClickHandler }, index) => (
+                <button
+                  onClick={onClickHandler}
+                  type="button"
+                  className={`
                   py-2 
                   px-4 
                   text-sm 
@@ -435,15 +460,15 @@ const Compose: React.FC<{}> = () => {
                   dark:focus:shadow-outline-gray
                   ${index === 0 ? 'rounded-l-lg border-r-0' : 'rounded-r-lg'}
                 `}
-              >
-                {leyend}
-              </button>
-            ))}
+                >
+                  {leyend}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {showCC || ccRecipients.length ? (
           <RecipientsInput
+            className={showCC || ccRecipients.length ? 'block' : 'hidden'}
             label="CC"
             placeholder="Email CC Recipient Identities"
             recipients={ccRecipients}
@@ -451,9 +476,7 @@ const Compose: React.FC<{}> = () => {
             addRecipient={addCCRecipient}
             removeRecipient={removeCCRecipient}
           />
-        ) : (
-          ''
-        )}
+        </div>
 
         <label className="block text-sm">
           <span className="text-gray-700 dark:text-gray-400">Subject</span>
