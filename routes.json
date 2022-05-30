@@ -4,6 +4,5 @@
   "/show": "index.html",
   "/sent": "index.html",
   "/important": "index.html",
-  "/trash": "index.html",
-  "/upload": "index.html"
+  "/trash": "index.html"
 }
