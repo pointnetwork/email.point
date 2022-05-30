@@ -68,3 +68,18 @@ type EventSubscription = {
   unsubscribe: Function;
   subscribe: Function;
 };
+
+type FileChunk = {
+  id: string;
+  position: number;
+};
+
+type StoredFile = {
+  name: string;
+  size: number;
+  type: string;
+  lastModified: number;
+  chunks: FileChunk[];
+};
+
+type EncryptedAttachment = StoredFile;

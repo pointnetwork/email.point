@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { encrypt, decrypt, generateRandomBytes, getCryptoKeyFromRawKey } from '@utils/encryption';
 
-const CHUNK_SIZE = 1024 * 1024 * 10;
+const CHUNK_SIZE = 1024 * 1024 * 5;
 
 const getRandomCryptoKey = async () => {
   const randomBytes = await generateRandomBytes(16);
@@ -106,6 +106,7 @@ const FileUpload: React.FC<{}> = () => {
       type: fileMetaData.type,
       lastModified: fileMetaData.lastModified,
     });
+    console.log('done');
     setUrl(URL.createObjectURL(file));
   }
 

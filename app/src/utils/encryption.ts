@@ -1,10 +1,7 @@
-// import { aesGcmEncrypt, aesGcmDecrypt } from 'crypto-aes-gcm';
-
 const { crypto } = window;
 
 const MIN_LENGTH = 16;
 const ALGORITHM = 'AES-GCM';
-const TAG_LENGTH_IN_BYTES = 16;
 
 export function generateRandomBytes(length: number): Uint8Array {
   if (length < MIN_LENGTH) {
@@ -70,13 +67,12 @@ export async function decrypt(password: string, data: string): Promise<Uint8Arra
   return new Uint8Array(plainBuffer); // TextDecoder().decode(plainBuffer);
 }
 
-/*
-export async function getRandomPasswordString(): Promise<string> {
-  return 'asdas';
-  const array2 = new Uint32Array(10);
-  const randomArray = window.crypto.getRandomValues(array2);
+export async function getRandomEncryptionKey() {
+  const array2 = new Uint32Array(16);
+  const randomArray = crypto.getRandomValues(array2);
   const pwUtf8 = new TextEncoder().encode(randomArray.join());
-  const pwHash = await window.crypto.subtle.digest('SHA-256', pwUtf8);
-  return new TextDecoder().decode(pwHash);
+  const pwHash = await crypto.subtle.digest('SHA-256', pwUtf8);
+  const hashArray = Array.from(new Uint8Array(pwHash));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
 }
-*/
