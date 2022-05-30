@@ -22,3 +22,8 @@ export async function putFile(file: File) {
   const response = await windowWithPoint.point.storage.putFile(file);
   return response;
 }
+
+export async function postFile(file: any) {
+  const response = await windowWithPoint.point.storage.postFile(file);
+  return response;
+}

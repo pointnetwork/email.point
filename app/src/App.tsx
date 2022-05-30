@@ -12,6 +12,7 @@ import Show from '@pages/Show';
 import Important from '@pages/Important';
 import Trash from '@pages/Trash';
 import Error from '@pages/Error';
+import FileUpload from '@pages/FileUpload';
 
 import Header from '@components/Header';
 import Sidebar from '@components/Sidebar';
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="/sent" element={<Sent />} />
             <Route path="/important" element={<Important />} />
             <Route path="/trash" element={<Trash />} />
+            <Route path="/upload" element={<FileUpload />} />
             <Route path="*" element={<Error />} />
           </Routes>
         </main>

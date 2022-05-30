@@ -1,3 +1,5 @@
+declare module 'crypto-aes-gcm';
+
 type WindowWithPoint = Window & {
   point: any;
 };
@@ -42,6 +44,7 @@ type Email = {
   deleted?: boolean;
   read?: boolean;
   attachments?: Array;
+  encryptionKey?: string;
 };
 
 type Event = {

@@ -26,11 +26,13 @@ export default async function EmailMapper(inputData: EmailInputData): Promise<Em
   let message;
   let subject;
   let attachments;
+  let encryptionKey;
   try {
     const json = JSON.parse(decryptedMessage);
     message = json.message;
     subject = json.subject;
     attachments = json.attachments;
+    encryptionKey = json.encryptionKey;
   } catch (error) {}
 
   return {
@@ -48,5 +50,6 @@ export default async function EmailMapper(inputData: EmailInputData): Promise<Em
     deleted,
     read,
     attachments,
+    encryptionKey,
   };
 }

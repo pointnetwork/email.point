@@ -22,6 +22,8 @@ import { selectors as identitySelectors } from '@store/modules/identity';
 import CONSTANTS from '../constants';
 import dayjs from 'dayjs';
 
+// import { getRandomPasswordString, encrypt, decrypt } from '@utils/encryption';
+
 enum ERRORS {
   INVALID_RECIPIENT,
 }
@@ -57,37 +59,37 @@ async function encryptAndSaveData(
 }
 
 type EncryptedAttachment = {
-  storedEncryptedMessageId: string;
-  encryptedSymmetricObjJSON: string;
+  id: string;
   name: string;
   size: number;
   type: string;
   lastModified: number;
 };
 
-async function getEncryptedAttachments(
+async function encryptAndSaveAttachments(
   attachments: File[],
-  publickKey: string
+  key: string
 ): Promise<EncryptedAttachment[]> {
-  const encryptedAttachmentsData = await Promise.all(
-    attachments.map(async (attachment) => {
-      const attachmentContent = await getFileContent(attachment);
-      // encrypt file content and save it
-      const encryptedFileContent = await encryptAndSaveData(
-        publickKey,
-        attachmentContent as string
-      );
-      const attachmentToSave = {
-        name: attachment.name,
-        size: attachment.size,
-        type: attachment.type,
-        lastModified: attachment.lastModified,
-        ...encryptedFileContent,
-      };
-      return attachmentToSave;
-    })
-  );
-  return encryptedAttachmentsData;
+  const attachmentsToSave: EncryptedAttachment[] = [];
+  for (let attachment of attachments) {
+    const attachmentContent = await getFileContent(attachment);
+    // const encryptedFileContent = await encrypt(attachmentContent, key);
+
+    const formData = new FormData();
+    // formData.append('postfile', new File([encryptedFileContent], 'attachment.json'));
+    //formData.append('postfile', attachment);
+    const { data } = await (window as any).point.storage.postFile(formData);
+
+    const attachmentToSave = {
+      id: data,
+      name: attachment.name,
+      size: attachment.size,
+      type: attachment.type,
+      lastModified: attachment.lastModified,
+    };
+    attachmentsToSave.push(attachmentToSave);
+  }
+  return attachmentsToSave;
 }
 
 function addRecipientFactory(
@@ -235,7 +237,7 @@ const Compose: React.FC<{}> = () => {
   async function addRecipientToEmail(
     emailId: number,
     recipient: Identity,
-    attachments: File[] = [],
+    emailData: string,
     cc: boolean = false
   ) {
     const [address, publicKey] = await Promise.all([
@@ -247,19 +249,7 @@ const Compose: React.FC<{}> = () => {
       throw new Error('Invalid identity');
     }
 
-    const encryptedAttachments: EncryptedAttachment[] = await getEncryptedAttachments(
-      attachments,
-      publicKey
-    );
-
-    const encryptedData = await encryptAndSaveData(
-      publicKey,
-      JSON.stringify({
-        subject,
-        message,
-        attachments: encryptedAttachments,
-      })
-    );
+    const encryptedData = await encryptAndSaveData(publicKey, emailData);
 
     await ContractService.sendContract({
       contract: 'PointEmail',
@@ -284,20 +274,31 @@ const Compose: React.FC<{}> = () => {
       return;
     }
 
-    // Get sender data
-    const fromEncryptedAttachments: EncryptedAttachment[] = await getEncryptedAttachments(
+    // const encryptionKey = await getRandomPasswordString();
+    /*
+    const attachmentIds: EncryptedAttachment[] = await encryptAndSaveAttachments(
       attachments,
-      publicKey!
+      encryptionKey
     );
 
-    const fromEncryptedData = await encryptAndSaveData(
-      publicKey!,
-      JSON.stringify({
-        subject,
-        message,
-        attachments: fromEncryptedAttachments,
-      })
-    );
+    console.log(attachmentIds);
+
+    const emailData = JSON.stringify({
+      subject,
+      message,
+      attachments: attachmentIds,
+      encryptionKey,
+    });
+
+    console.log({
+      subject,
+      message,
+      attachments: attachmentIds,
+      encryptionKey,
+    });
+    
+    const fromEncryptedData = await encryptAndSaveData(publicKey!, emailData);
+    
 
     // Create the email
     const { events } = await ContractService.sendContract({
@@ -316,7 +317,7 @@ const Compose: React.FC<{}> = () => {
 
     for (let recipient of recipients) {
       try {
-        await addRecipientToEmail(newEmailId, recipient, attachments, false);
+        await addRecipientToEmail(newEmailId, recipient, emailData, false);
       } catch (error) {
         rejectedRecipients.push(recipient);
       }
@@ -324,7 +325,7 @@ const Compose: React.FC<{}> = () => {
 
     for (let ccRecipient of ccRecipients) {
       try {
-        await addRecipientToEmail(newEmailId, ccRecipient, attachments, true);
+        await addRecipientToEmail(newEmailId, ccRecipient, emailData, true);
       } catch (error) {
         rejectedRecipients.push(ccRecipient);
       }
@@ -339,6 +340,7 @@ const Compose: React.FC<{}> = () => {
       cleanForm();
       return;
     }
+    */
 
     dispatch(
       uiActions.showSuccessNotification({
@@ -348,12 +350,59 @@ const Compose: React.FC<{}> = () => {
     cleanForm();
   }
 
-  function addAttachment(event: React.ChangeEvent<HTMLInputElement>) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [a, setA] = useState<any>(null);
+
+  async function addAttachment(event: React.ChangeEvent<HTMLInputElement>) {
     const attachment = (event?.target?.files || [])[0];
     if (!attachment) {
       return;
     }
 
+    // BORRAR
+    const encryptedKey = 'aaaaa';
+    const chunkSize = 1000000;
+    const chunksNumber = Math.ceil(attachment.size / chunkSize);
+
+    let chunkStart = 0;
+    let chunkEnd = Math.min(chunkStart + chunkSize, attachment.size);
+    for (let i = 0; i < chunksNumber; i++) {
+      chunkStart = chunkEnd;
+      chunkEnd += chunkSize;
+    }
+
+    const attachmentContent = await getFileContent(attachment);
+    // const encryptedFileContent = await encrypt(attachmentContent, encryptedKey);
+
+    const formData = new FormData();
+    // formData.append('postfile', new File([encryptedFileContent], 'attachment.json'));
+    //formData.append('postfile', attachment);
+    const { data } = await (window as any).point.storage.postFile(formData);
+
+    const attachmentToSave = {
+      id: data,
+      name: attachment.name,
+      size: attachment.size,
+      type: attachment.type,
+      lastModified: attachment.lastModified,
+    };
+
+    const blob = await (await fetch(`/_storage/${attachmentToSave.id}`)).blob();
+    // const decrypted = await decrypt(await blob.text(), encryptedKey);
+
+    /*
+    const file = new File([decrypted], attachment.name, {
+      lastModified: attachment.lastModified,
+      type: attachment.type,
+    });
+
+
+    setA(attachmentToSave);
+    setUrl(URL.createObjectURL(blob));
+*/
+    // BORRAR
+
+    /*
     if (attachment.size > FILE_MAX_SIZE) {
       dispatch(
         uiActions.showErrorNotification({
@@ -362,6 +411,7 @@ const Compose: React.FC<{}> = () => {
       );
       return;
     }
+    */
 
     setAttachments((_attachments) => {
       const attachments = [..._attachments];
@@ -401,6 +451,30 @@ const Compose: React.FC<{}> = () => {
           ''
         )}
       </h2>
+      {url ? (
+        <a
+          href={url}
+          download={a.name}
+          className="
+          rounded
+          bg-gray-200
+          py-2
+          px-4
+          text-gray-500
+          flex
+          flex-row
+          items-center
+          justify-center
+          underline
+          m-1
+        "
+        >
+          <span>Download {a.name}</span>
+        </a>
+      ) : (
+        ''
+      )}
+
       <form
         onSubmit={onSendHandler}
         className="px-4 py-3 mb-8 bg-white rounded-lg shadow-md dark:bg-gray-800"

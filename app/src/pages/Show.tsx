@@ -14,40 +14,43 @@ import * as IdentityService from '@services/IdentityService';
 
 import { actions as uiActions } from '@store/modules/ui';
 
+import { decrypt } from '@utils/encryption';
+
 import RedirectWithTimeout from '@components/RedirectWithTimeout';
 import Spinner from '@components/Spinner';
 import IdentitToComposeViewButton from '@components/IdentityToComposeViewButton';
 
 type Attachment = {
+  id: string;
   name: string;
   type: string;
   size: string;
   lastModified: number;
-  storedEncryptedMessageId: string;
-  encryptedSymmetricObjJSON: string;
 };
 
-const Attachment: React.FC<{ attachment: Attachment }> = (props) => {
-  const { attachment } = props;
+const Attachment: React.FC<{ attachment: Attachment; encryptionKey?: string }> = (props) => {
+  const { attachment, encryptionKey } = props;
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
   async function getEncryptedFile() {
-    const encryptedFileContent = await StorageService.getString(
-      attachment.storedEncryptedMessageId
-    );
-    const decryptedFileContent = await WalletService.decryptData(
-      encryptedFileContent,
-      attachment.encryptedSymmetricObjJSON
-    );
+    // const fileContent = await fetch(`/_storage/${attachment.id}`);
 
-    const blob = await (await fetch(decryptedFileContent)).blob();
+    const blob = await (await fetch(`/_storage/${attachment.id}`)).blob();
+    // const decrypted = await decrypt(await blob.text(), encryptionKey);
+
+    // console.log('de', decrypted);
+
+    // const blob2 = new Blob([decrypted], { type: attachment.type });
 
     const file = new File([blob], attachment.name, {
       lastModified: attachment.lastModified,
       type: attachment.type,
     });
-    setUrl(URL.createObjectURL(file));
+
+    // console.log(file);
+
+    setUrl(URL.createObjectURL(blob));
   }
 
   function getAttachmentFile() {
@@ -324,7 +327,11 @@ const Show: React.FC<{}> = () => {
             {emailData.attachments ? (
               <div className="flex flex-row flex-wrap mt-5 border-t border-gray-200 pt-2 text-sm">
                 {emailData.attachments.map((attachment: Attachment, index: number) => (
-                  <Attachment key={index} attachment={attachment} />
+                  <Attachment
+                    key={index}
+                    attachment={attachment}
+                    encryptionKey={emailData.encryptionKey}
+                  />
                 ))}
               </div>
             ) : (
