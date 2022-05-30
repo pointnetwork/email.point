@@ -68,8 +68,7 @@ export async function decrypt(password: string, data: string): Promise<Uint8Arra
 }
 
 export async function getRandomEncryptionKey() {
-  const array2 = new Uint32Array(16);
-  const randomArray = crypto.getRandomValues(array2);
+  const randomArray = crypto.getRandomValues(new Uint32Array(16));
   const pwUtf8 = new TextEncoder().encode(randomArray.join());
   const pwHash = await crypto.subtle.digest('SHA-256', pwUtf8);
   const hashArray = Array.from(new Uint8Array(pwHash));
