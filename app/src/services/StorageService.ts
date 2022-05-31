@@ -80,7 +80,21 @@ export async function encryptAndStoreFile(
     chunkStart = chunkNumber * CHUNK_SIZE;
     chunkEnd = Math.min(chunkStart + CHUNK_SIZE, file.size);
     currentChunk = _file.slice(chunkStart, chunkEnd);
-    const chunkFileId = await processChunk(currentChunk, _encryptionKey);
+    let chunkFileId;
+    let retries = 3;
+    // try to process the chunk three times before the process fails
+    while (!chunkFileId) {
+      if (retries === 0) {
+        throw new Error(`Chunk ${chunkNumber} from file ${_file.name} has failed`);
+      }
+      try {
+        chunkFileId = await processChunk(currentChunk, _encryptionKey);
+      } catch (error) {
+        console.error('chunk', chunkNumber, 'from file', _file.name, 'fails');
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // wait 1 sec
+        retries--;
+      }
+    }
     file.chunks.push({
       id: chunkFileId,
       position: chunkNumber,
