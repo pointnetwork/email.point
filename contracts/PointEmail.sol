@@ -18,6 +18,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     struct Email {
         uint256 id;
         address from;
+        address[] to;
         uint256 createdAt;
     }
 
@@ -51,7 +52,6 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     mapping(uint256 => mapping(address => EmailUserMetaData))
         private emailUserMetadata;
 
-    mapping(uint256 => address[]) private emailTo;
     mapping(uint256 => address[]) private emailCC;
 
     event EmailCreated(uint256 id, address indexed from, uint256 timestamp);
@@ -132,8 +132,15 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         _emailIds.increment();
         uint256 newEmailId = _emailIds.current();
 
+        address[] memory _emptyToArray;
+
         // New email object
-        Email memory _email = Email(newEmailId, msg.sender, block.timestamp);
+        Email memory _email = Email(
+            newEmailId,
+            msg.sender,
+            _emptyToArray,
+            block.timestamp
+        );
 
         emailIdToEmail[newEmailId] = _email;
 
@@ -176,7 +183,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         );
 
         require(
-            cc || !_isInAddressArray(_recipient, emailTo[_emailId]),
+            cc || !_isInAddressArray(_recipient, email.to),
             "Recipient already in email (to)"
         );
 
@@ -190,7 +197,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         if (cc) {
             emailCC[_emailId].push(_recipient);
         } else {
-            emailTo[_emailId].push(_recipient);
+            email.to.push(_recipient);
         }
 
         bool metadaAlreadyAdded = bytes(
@@ -413,13 +420,12 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             _user
         ];
 
-        address[] memory emailToArray = emailTo[_email.id];
         address[] memory emailCCArray = emailCC[_email.id];
 
         EmailWithUserMetaData memory emailWithMetadata = EmailWithUserMetaData(
             _email.id,
             _email.from,
-            emailToArray,
+            _email.to,
             emailCCArray,
             emailMetaData.recipientAddedAt,
             emailMetaData.encryptedMessageId,
