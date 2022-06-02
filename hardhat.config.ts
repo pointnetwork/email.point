@@ -7,7 +7,6 @@ import 'hardhat-gas-reporter';
 import 'solidity-coverage';
 import 'hardhat-watcher';
 import '@openzeppelin/hardhat-upgrades';
-import { task } from 'hardhat/config';
 import path from 'path';
 
 /**
