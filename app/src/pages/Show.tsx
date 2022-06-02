@@ -186,9 +186,11 @@ const Show: React.FC<{}> = () => {
     getEmailData(emailId)
       .then((emailData) => {
         setEmailData(emailData);
+        /*
         if (!emailData.read) {
           EmailService.markEmailAsRead(emailData.id, true);
         }
+        */
         setLoading(false);
       })
       .catch((error) => {

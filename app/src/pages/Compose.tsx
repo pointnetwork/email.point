@@ -228,23 +228,23 @@ const Compose: React.FC<{}> = () => {
       });
   }
 
-  async function addRecipientToEmail(recipient: Identity, attachments: File[] = []) {
-    const [address, publicKey] = await Promise.all([
+  async function getRecipientEncryptedEmailData(recipient: Identity, attachments: File[] = []) {
+    const [recipientAddress, recipientPublicKey] = await Promise.all([
       IdentityService.identityToOwner(recipient),
       IdentityService.publicKeyByIdentity(recipient),
     ]);
 
-    if (address === CONSTANTS.AddressZero) {
+    if (recipientAddress === CONSTANTS.AddressZero) {
       throw new Error('Invalid identity');
     }
 
     const encryptedAttachments: EncryptedAttachment[] = await getEncryptedAttachments(
       attachments,
-      publicKey
+      recipientPublicKey
     );
 
     const encryptedData = await encryptAndSaveData(
-      publicKey,
+      recipientPublicKey,
       JSON.stringify({
         subject,
         message,
@@ -253,7 +253,7 @@ const Compose: React.FC<{}> = () => {
     );
 
     return {
-      address,
+      address: recipientAddress,
       ...encryptedData,
     };
   }
@@ -290,18 +290,19 @@ const Compose: React.FC<{}> = () => {
 
     let recipientData;
     for (let recipient of recipients) {
-      recipientData = await addRecipientToEmail(recipient, attachments);
+      recipientData = await getRecipientEncryptedEmailData(recipient, attachments);
       addresses.push(recipientData.address);
       messageIds.push(recipientData.storedEncryptedMessageId);
       symObjs.push(recipientData.encryptedSymmetricObjJSON);
       isCCRecipient.push(false);
     }
 
+    let ccRecipientData;
     for (let ccRecipient of ccRecipients) {
-      recipientData = await addRecipientToEmail(ccRecipient, attachments);
-      addresses.push(recipientData.address);
-      messageIds.push(recipientData.storedEncryptedMessageId);
-      symObjs.push(recipientData.encryptedSymmetricObjJSON);
+      ccRecipientData = await getRecipientEncryptedEmailData(ccRecipient, attachments);
+      addresses.push(ccRecipientData.address);
+      messageIds.push(ccRecipientData.storedEncryptedMessageId);
+      symObjs.push(ccRecipientData.encryptedSymmetricObjJSON);
       isCCRecipient.push(true);
     }
 
