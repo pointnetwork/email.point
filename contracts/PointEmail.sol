@@ -125,9 +125,21 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
      * @param _fromEncryptedSymmetricObj - The encryption settings for the sender
      */
     function send(
-        string memory _fromEncryptedMessageId,
-        string memory _fromEncryptedSymmetricObj
+        string calldata _fromEncryptedMessageId,
+        string calldata _fromEncryptedSymmetricObj,
+        address[] memory _recipients,
+        string[] memory _recipientEncryptedMessageIds,
+        string[] memory _recipientEncryptedSymmetricObjs,
+        bool[] memory _recipientCCs
     ) external {
+        uint256 recipientsQty = _recipients.length;
+        require(
+            recipientsQty == _recipientEncryptedMessageIds.length &&
+                recipientsQty == _recipientEncryptedSymmetricObjs.length &&
+                recipientsQty == _recipientCCs.length,
+            "inconsistent recipients"
+        );
+
         // New email id
         _emailIds.increment();
         uint256 newEmailId = _emailIds.current();
@@ -149,6 +161,16 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         );
         emailUserMetadata[newEmailId][msg.sender] = _fromMetadata;
 
+        for (uint256 i = 0; i < recipientsQty; i++) {
+            addRecipientToEmail(
+                newEmailId,
+                _recipients[i],
+                _recipientEncryptedMessageIds[i],
+                _recipientEncryptedSymmetricObjs[i],
+                _recipientCCs[i]
+            );
+        }
+
         emit EmailCreated(newEmailId, msg.sender, block.timestamp);
     }
 
@@ -167,7 +189,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         string memory _recipientEncryptedMessageId,
         string memory _recipientEncryptedSymmetricObj,
         bool cc
-    ) external onlySender(_emailId) validEmail(_emailId) {
+    ) private onlySender(_emailId) validEmail(_emailId) {
         Email storage email = emailIdToEmail[_emailId];
 
         require(

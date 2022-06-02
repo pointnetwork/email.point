@@ -14,7 +14,7 @@ export async function encryptData(publicKey: PublicKey, data: string): Promise<E
 
 export async function decryptData(
   encryptedData: string,
-  encryptedSymmetricObj: any
+  encryptedSymmetricObj: string
 ): Promise<string> {
   const {
     data: { decryptedData },
