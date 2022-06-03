@@ -18,7 +18,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     struct Email {
         uint256 id;
         address from;
-        address to; // just for compatibility // moved to a mapping
+        address to;
         uint256 createdAt;
     }
 
@@ -34,6 +34,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         address from;
         address[] to;
         address[] cc;
+        uint256 createdAt;
         bytes32 encryptedMessageId;
         string encryptedSymmetricObj;
         bool important;
@@ -42,11 +43,11 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     }
 
     // Email mappings
-    mapping(bytes32 => Email) public encryptedMessageIdToEmail;
-    mapping(address => Email[]) private toEmails;
-    mapping(address => Email[]) private fromEmails;
+    mapping(bytes32 => Email) public encryptedMessageIdToEmail; // old mapping. do not use
+    mapping(address => Email[]) public toEmails;
+    mapping(address => Email[]) public fromEmails;
     mapping(uint256 => mapping(address => EmailUserMetaData))
-        private emailUserMetadata;
+        public emailUserMetadata;
 
     mapping(uint256 => Email) private emailIdToEmail; // should migrate data from toEmails and fromEmails
 
@@ -255,7 +256,28 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         view
         returns (EmailWithUserMetaData memory)
     {
-        return _getEmailWithMetadata(emailIdToEmail[_emailId], msg.sender);
+        Email memory _email = emailIdToEmail[_emailId];
+        // new version
+        if (_email.from != address(0)) {
+            return _getEmailWithMetadata(_email, msg.sender);
+        }
+
+        // old version compatibylity
+        for (uint256 i = 0; i < toEmails[msg.sender].length; i++) {
+            _email = toEmails[msg.sender][i];
+            if (_email.id == _emailId) {
+                return _getEmailWithMetadata(_email, msg.sender);
+            }
+        }
+
+        for (uint256 i = 0; i < fromEmails[msg.sender].length; i++) {
+            _email = fromEmails[msg.sender][i];
+            if (_email.id == _emailId) {
+                return _getEmailWithMetadata(_email, msg.sender);
+            }
+        }
+
+        revert("error");
     }
 
     /**
@@ -419,26 +441,29 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             _user
         ];
 
-        address[] memory emailToArray = emailTo[_email.id];
-        address[] memory emailCCArray = emailCC[_email.id];
-
-        // have to do this for compatibility with the old contract
-        if (_email.to != address(0) && emailToArray.length == 0) {
+        // workaround for retro compatibility
+        address[] memory emailToArray = new address[](1);
+        if (_email.to != address(0)) {
             emailToArray[0] = _email.to;
+        } else {
+            emailToArray = emailTo[_email.id];
         }
 
-        bool _emailRead = emailRead[msg.sender][_email.id];
+        address[] memory emailCCArray = emailCC[_email.id];
+
+        bool emailReadByUser = emailRead[msg.sender][_email.id];
 
         EmailWithUserMetaData memory emailWithMetadata = EmailWithUserMetaData(
             _email.id,
             _email.from,
             emailToArray,
             emailCCArray,
+            _email.createdAt,
             emailMetaData.encryptedMessageId,
             emailMetaData.encryptedSymmetricObj,
             emailMetaData.important,
             emailMetaData.deleted,
-            _emailRead
+            emailReadByUser
         );
         return emailWithMetadata;
     }

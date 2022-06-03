@@ -234,9 +234,9 @@
         }
       }
     },
-    "fab2e14053aca09426f5185c0c3ea68bf6c755e161466a779b64641d443ad784": {
+    "14a9177d0824f2a801e940c31196070a6ed53b88f5b6e9aec7cda398a0e2699f": {
       "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-      "txHash": "0xe85ff58bbbaba2aec66ac9bf2e15c6389150363d8f419e05135abbbe403537b8",
+      "txHash": "0x10855ebcd8c93f05dedd1a67e1210960192ea9c79333d2a8d22c9604f4e039aa",
       "layout": {
         "storage": [
           {
@@ -309,7 +309,7 @@
             "slot": "202",
             "type": "t_mapping(t_bytes32,t_struct(Email)1171_storage)",
             "contract": "PointEmail",
-            "src": "contracts/PointEmail.sol:45"
+            "src": "contracts/PointEmail.sol:46"
           },
           {
             "label": "toEmails",
@@ -317,7 +317,7 @@
             "slot": "203",
             "type": "t_mapping(t_address,t_array(t_struct(Email)1171_storage)dyn_storage)",
             "contract": "PointEmail",
-            "src": "contracts/PointEmail.sol:46"
+            "src": "contracts/PointEmail.sol:47"
           },
           {
             "label": "fromEmails",
@@ -325,7 +325,7 @@
             "slot": "204",
             "type": "t_mapping(t_address,t_array(t_struct(Email)1171_storage)dyn_storage)",
             "contract": "PointEmail",
-            "src": "contracts/PointEmail.sol:47"
+            "src": "contracts/PointEmail.sol:48"
           },
           {
             "label": "emailUserMetadata",
@@ -333,7 +333,7 @@
             "slot": "205",
             "type": "t_mapping(t_uint256,t_mapping(t_address,t_struct(EmailUserMetaData)1180_storage))",
             "contract": "PointEmail",
-            "src": "contracts/PointEmail.sol:48"
+            "src": "contracts/PointEmail.sol:49"
           },
           {
             "label": "emailIdToEmail",
@@ -341,7 +341,7 @@
             "slot": "206",
             "type": "t_mapping(t_uint256,t_struct(Email)1171_storage)",
             "contract": "PointEmail",
-            "src": "contracts/PointEmail.sol:51"
+            "src": "contracts/PointEmail.sol:52"
           },
           {
             "label": "emailTo",
@@ -349,7 +349,7 @@
             "slot": "207",
             "type": "t_mapping(t_uint256,t_array(t_address)dyn_storage)",
             "contract": "PointEmail",
-            "src": "contracts/PointEmail.sol:53"
+            "src": "contracts/PointEmail.sol:54"
           },
           {
             "label": "emailCC",
@@ -357,7 +357,7 @@
             "slot": "208",
             "type": "t_mapping(t_uint256,t_array(t_address)dyn_storage)",
             "contract": "PointEmail",
-            "src": "contracts/PointEmail.sol:54"
+            "src": "contracts/PointEmail.sol:55"
           },
           {
             "label": "emailRead",
@@ -365,7 +365,7 @@
             "slot": "209",
             "type": "t_mapping(t_address,t_mapping(t_uint256,t_bool))",
             "contract": "PointEmail",
-            "src": "contracts/PointEmail.sol:56"
+            "src": "contracts/PointEmail.sol:57"
           }
         ],
         "types": {
