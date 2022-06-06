@@ -17,23 +17,20 @@ describe('upgrade', () => {
   let user2: SignerWithAddress;
   let emailId: number;
   async function deployOldContract() {
-    const Factory = await ethers.getContractFactory('PointEmailV0');
+    const Factory = await ethers.getContractFactory('PointEmailV00');
     contract = await upgrades.deployProxy(Factory);
     await contract.deployed();
   }
 
   async function sendEmail() {
-    const tx = await contract
-      .connect(user1)
-      .send(
-        user2.address,
-        ENCRYPTED_ID_USER_1,
-        ENCRYPTED_CONTENT_USER_1,
-        ENCRYPTED_ID_USER_2,
-        ENCRYPTED_CONTENT_USER_2
-      );
+    let tx = await contract.connect(user1).send(ENCRYPTED_ID_USER_1, ENCRYPTED_CONTENT_USER_1);
     const receipt = await tx.wait();
     emailId = receipt.events[0].args.id;
+
+    tx = await contract
+      .connect(user1)
+      .addRecipientToEmail(emailId, user2.address, ENCRYPTED_ID_USER_2, ENCRYPTED_CONTENT_USER_2);
+
     return receipt;
   }
 
