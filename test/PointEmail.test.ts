@@ -2,6 +2,7 @@ import { expect } from 'chai';
 import { BigNumber, Contract, ContractReceipt } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ethers } from 'hardhat';
+const { utils } = ethers;
 
 const { utils } = ethers;
 
