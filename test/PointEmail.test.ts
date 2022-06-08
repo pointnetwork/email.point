@@ -4,8 +4,6 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ethers } from 'hardhat';
 const { utils } = ethers;
 
-const { utils } = ethers;
-
 const SENDER = {
   ENCRYPTED_ID: utils.formatBytes32String('ENCRYPTED_ID_SENDER'),
   ENCRYPTED_CONTENT: 'ENCRYPTED_CONTENT_SENDER',
