@@ -6,14 +6,19 @@ import { selectors as identitySelectors } from '@store/modules/identity';
 import * as ContractService from '@services/ContractService';
 
 import TableView from '@components/TableView';
+import IdentitySpan from '@components/IdentitySpan';
 
 const Inbox: React.FC<{}> = () => {
   const walletAddress = useSelector(identitySelectors.getWalletAddress);
   const identity = useSelector(identitySelectors.getIdentity);
 
-  let title = 'Inbox';
+  let title = <span>Inbox</span>;
   if (identity) {
-    title = `Inbox for @${identity}`;
+    title = (
+      <span>
+        Inbox for <IdentitySpan identity={identity} />
+      </span>
+    );
   }
 
   return (

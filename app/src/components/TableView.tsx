@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ReactElement } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { InboxIcon, BanIcon, CheckIcon, RefreshIcon } from '@heroicons/react/outline';
 
@@ -15,7 +15,7 @@ import TableRow from '@components/TableRow';
 
 type Props = {
   getTableItems: () => Promise<EmailInputData[]>;
-  title?: String;
+  title?: String | ReactElement;
 };
 
 const TableView: React.FC<Props> = (props) => {
@@ -153,7 +153,7 @@ const TableView: React.FC<Props> = (props) => {
         <div className="container px-6 mx-auto grid">
           <h2 className="my-3 text-gray-700 dark:text-gray-200">
             <div className="text-2xl font-semibold">{title}</div>
-            <div>{walletAddress}</div>
+            <div className="font-mono text-gray-500 dark:text-gray-400">{walletAddress}</div>
           </h2>
           <div className="w-full overflow-hidden rounded-lg shadow-xs">
             <div className="w-full overflow-x-auto">
