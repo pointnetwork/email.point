@@ -272,7 +272,11 @@ const Show: React.FC<{}> = () => {
                   "
                 >
                   @{emailData.fromIdentity}&nbsp;
-                  {`<${emailData.from}>`}
+                  {'<'}
+                  <span className="font-mono text-gray-500 dark:text-gray-400">
+                    {emailData.from}
+                  </span>
+                  {'>'}
                 </span>
               </div>
               <div className="text-sm mt-2 md:mt-0">

@@ -21,9 +21,9 @@ const RecipientBag: React.FC<Props> = (props) => {
         m-1
       "
     >
-      <button type="button" onClick={() => onRemoveHandler(recipient)}>
+      <a type="button" className="cursor-pointer" onClick={() => onRemoveHandler(recipient)}>
         <XIcon className="w-4 h-4 mr-1" />
-      </button>
+      </a>
       <span className="font-semibold">@{recipient}</span>
     </div>
   );

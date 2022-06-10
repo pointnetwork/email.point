@@ -16,29 +16,33 @@ const RecipientsInput: React.FC<{
   disabled: boolean;
   addRecipient: Function;
   removeRecipient: Function;
+  className?: string;
 }> = (props) => {
-  const { recipients, disabled, addRecipient, removeRecipient, label, placeholder } = props;
+  const { recipients, disabled, addRecipient, removeRecipient, label, placeholder, className } =
+    props;
   const [identity, setIdentity] = useState<Identity>('');
   const [focus, setFocus] = useState<boolean>(false);
 
   const dispatch = useDispatch();
 
-  function validateAndAddNewRecipient(newRecipient: string) {
-    if (newRecipient === '') {
+  function validateAndAddNewRecipient(_recipient: string) {
+    const recipient = _recipient.replace(/^@/g, '');
+
+    if (recipient === '') {
       return;
     }
 
-    IdentityService.identityToOwner(newRecipient)
+    IdentityService.identityToOwner(recipient)
       .then((owner) => {
         if (owner === CONSTANTS.AddressZero) {
           dispatch(
             uiActions.showErrorNotification({
-              message: `${newRecipient} is an invalid recipient identity.`,
+              message: `${recipient} is an invalid recipient identity.`,
             })
           );
           return;
         }
-        addRecipient(newRecipient);
+        addRecipient(recipient);
       })
       .catch((error) => {
         console.error(error);
@@ -53,7 +57,6 @@ const RecipientsInput: React.FC<{
   const onRemoveRecipientHandler = useCallback(
     (_recipient: Identity) => {
       removeRecipient(_recipient);
-      setIdentity('');
     },
     [recipients]
   );
@@ -85,14 +88,23 @@ const RecipientsInput: React.FC<{
         if (!recipients.length) {
           return;
         }
+        if (identity.length) {
+          return;
+        }
         removeRecipient(recipients.slice(-1));
       }
     },
     [recipients, identity]
   );
 
+  const onBlurHandler = useCallback(() => {
+    validateAndAddNewRecipient(identity);
+    setIdentity('');
+    setFocus(false);
+  }, [recipients, identity, focus]);
+
   return (
-    <label className="block text-sm mb-5">
+    <label className={`block text-sm mb-5 ${className}`}>
       <span className="text-gray-700 dark:text-gray-400 mb-2">{label}</span>
       <div className="flex flex-col w-full">
         <div
@@ -144,7 +156,7 @@ const RecipientsInput: React.FC<{
             onChange={onIdentityChangeHandler}
             onKeyDown={onKeyDownHandler}
             onFocus={() => setFocus(true)}
-            onBlur={() => setFocus(false)}
+            onBlur={onBlurHandler}
             placeholder={placeholder}
           />
         </div>
