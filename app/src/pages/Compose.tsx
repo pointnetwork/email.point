@@ -8,7 +8,6 @@ import { UploadIcon } from '@heroicons/react/solid';
 import Spinner from '@components/Spinner';
 import AttachmentBag from '@components/AttachmentBag';
 import RecipientsInput from '@components/RecipientsInput';
-import IdentitySpan from '@components/IdentitySpan';
 
 import { getEmailData } from '@services/EmailService';
 import * as ContractService from '@services/ContractService';
@@ -21,6 +20,9 @@ import { selectors as identitySelectors } from '@store/modules/identity';
 
 import CONSTANTS from '../constants';
 import dayjs from 'dayjs';
+
+import { getRandomEncryptionKey } from '@utils/encryption';
+import { encryptAndStoreFile } from '@services/StorageService';
 
 enum ERRORS {
   INVALID_RECIPIENT,
@@ -39,7 +41,7 @@ function getFileContent(file: File): Promise<FileContent> {
   });
 }
 
-const FILE_MAX_SIZE = 1048576;
+const FILE_MAX_SIZE = 104857600; // 100mb
 
 async function encryptAndSaveData(
   publicKey: string,
@@ -54,40 +56,6 @@ async function encryptAndSaveData(
     storedEncryptedMessageId,
     encryptedSymmetricObjJSON,
   };
-}
-
-type EncryptedAttachment = {
-  storedEncryptedMessageId: string;
-  encryptedSymmetricObjJSON: string;
-  name: string;
-  size: number;
-  type: string;
-  lastModified: number;
-};
-
-async function getEncryptedAttachments(
-  attachments: File[],
-  publickKey: string
-): Promise<EncryptedAttachment[]> {
-  const encryptedAttachmentsData = await Promise.all(
-    attachments.map(async (attachment) => {
-      const attachmentContent = await getFileContent(attachment);
-      // encrypt file content and save it
-      const encryptedFileContent = await encryptAndSaveData(
-        publickKey,
-        attachmentContent as string
-      );
-      const attachmentToSave = {
-        name: attachment.name,
-        size: attachment.size,
-        type: attachment.type,
-        lastModified: attachment.lastModified,
-        ...encryptedFileContent,
-      };
-      return attachmentToSave;
-    })
-  );
-  return encryptedAttachmentsData;
 }
 
 function addRecipientFactory(
@@ -119,6 +87,7 @@ function removeRecipientFactory(
 }
 
 const Compose: React.FC<{}> = () => {
+  const [encryptionKey, setEncryptionKey] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const identity = useSelector(identitySelectors.getIdentity);
   const publicKey = useSelector(identitySelectors.getPublicKey);
@@ -134,8 +103,6 @@ const Compose: React.FC<{}> = () => {
 
   const [searchParams] = useSearchParams();
 
-  const [isReply, setIsReply] = useState<Boolean>(false);
-  const [showRecipients, setShowRecipients] = useState<Boolean>(false);
   const [recipients, setRecipients] = useState<Identity[]>([]);
   const [ccRecipients, setCCRecipients] = useState<Identity[]>([]);
   const [subject, setSubject] = useState<string>('');
@@ -156,7 +123,6 @@ const Compose: React.FC<{}> = () => {
     setSubject('');
     setMessage('');
     setAttachments([]);
-    setIsReply(false);
   }
 
   const addRecipient = useCallback(addRecipientFactory(setRecipients), [recipients]);
@@ -167,7 +133,6 @@ const Compose: React.FC<{}> = () => {
   async function setReplyEmailData(replyToEmailId: string) {
     try {
       const replyToEmail = await getEmailData(replyToEmailId);
-      setIsReply(true);
       setRecipients([replyToEmail.fromIdentity!]);
       setSubject(`RE: ${replyToEmail.subject!}`);
       setMessage(
@@ -213,6 +178,14 @@ const Compose: React.FC<{}> = () => {
     setSubject(subject);
     setMessage(message);
     setLoading(false);
+
+    getRandomEncryptionKey()
+      .then((_encryptionKey: string) => {
+        setEncryptionKey(_encryptionKey);
+      })
+      .catch((error: any) => {
+        console.error(error);
+      });
   }, [identity]);
 
   function onSendHandler(event: React.FormEvent<HTMLFormElement>) {
@@ -235,7 +208,7 @@ const Compose: React.FC<{}> = () => {
   async function addRecipientToEmail(
     emailId: number,
     recipient: Identity,
-    attachments: File[] = [],
+    email: string,
     cc: boolean = false
   ) {
     const [address, publicKey] = await Promise.all([
@@ -247,19 +220,7 @@ const Compose: React.FC<{}> = () => {
       throw new Error('Invalid identity');
     }
 
-    const encryptedAttachments: EncryptedAttachment[] = await getEncryptedAttachments(
-      attachments,
-      publicKey
-    );
-
-    const encryptedData = await encryptAndSaveData(
-      publicKey,
-      JSON.stringify({
-        subject,
-        message,
-        attachments: encryptedAttachments,
-      })
-    );
+    const encryptedData = await encryptAndSaveData(publicKey, email);
 
     await ContractService.sendContract({
       contract: 'PointEmail',
@@ -274,6 +235,14 @@ const Compose: React.FC<{}> = () => {
     });
   }
 
+  async function saveAttachments(): Promise<EncryptedAttachment[]> {
+    let storedAttachments: EncryptedAttachment[] = [];
+    for (let attachment of attachments) {
+      storedAttachments.push(await encryptAndStoreFile(attachment, encryptionKey));
+    }
+    return storedAttachments;
+  }
+
   async function send() {
     if (!recipients.length) {
       dispatch(
@@ -284,20 +253,22 @@ const Compose: React.FC<{}> = () => {
       return;
     }
 
-    // Get sender data
-    const fromEncryptedAttachments: EncryptedAttachment[] = await getEncryptedAttachments(
-      attachments,
-      publicKey!
-    );
+    const storedAttachments: EncryptedAttachment[] = await saveAttachments();
+    const email: string = JSON.stringify({
+      subject,
+      message,
+      attachments: storedAttachments,
+      encryptionKey,
+    });
 
-    const fromEncryptedData = await encryptAndSaveData(
-      publicKey!,
-      JSON.stringify({
-        subject,
-        message,
-        attachments: fromEncryptedAttachments,
-      })
-    );
+    console.log({
+      subject,
+      message,
+      attachments: storedAttachments,
+      encryptionKey,
+    });
+
+    const fromEncryptedData = await encryptAndSaveData(publicKey!, email);
 
     // Create the email
     const { events } = await ContractService.sendContract({
@@ -316,7 +287,7 @@ const Compose: React.FC<{}> = () => {
 
     for (let recipient of recipients) {
       try {
-        await addRecipientToEmail(newEmailId, recipient, attachments, false);
+        await addRecipientToEmail(newEmailId, recipient, email, false);
       } catch (error) {
         rejectedRecipients.push(recipient);
       }
@@ -324,7 +295,7 @@ const Compose: React.FC<{}> = () => {
 
     for (let ccRecipient of ccRecipients) {
       try {
-        await addRecipientToEmail(newEmailId, ccRecipient, attachments, true);
+        await addRecipientToEmail(newEmailId, ccRecipient, email, true);
       } catch (error) {
         rejectedRecipients.push(ccRecipient);
       }
@@ -385,55 +356,35 @@ const Compose: React.FC<{}> = () => {
     [attachments]
   );
 
-  const onShowRecipientsHandler = (event: React.MouseEvent) => {
-    setShowRecipients(!showRecipients);
-  };
-
   return (
     <div className="container px-6 mx-auto grid">
       <h2 className="my-3 text-gray-700 dark:text-gray-200">
         <div className="text-2xl font-semibold">Compose</div>
-        {identity ? (
-          <div>
-            From: <IdentitySpan identity={identity} />
-          </div>
-        ) : (
-          ''
-        )}
+        <div>From: @{identity}</div>
       </h2>
       <form
         onSubmit={onSendHandler}
         className="px-4 py-3 mb-8 bg-white rounded-lg shadow-md dark:bg-gray-800"
       >
-        <div className={`w-full flex justify-end py-3 ${isReply ? 'block' : 'hidden'}`}>
-          <button
-            className="underline text-blue-500 dark:text-blue-300 text-sm"
-            type="button"
-            onClick={onShowRecipientsHandler}
-          >
-            Recipients
-          </button>
-        </div>
-        <div className={!isReply || showRecipients ? 'block' : 'hidden'}>
-          <RecipientsInput
-            label="To"
-            placeholder="Email Recipient Identities"
-            recipients={recipients}
-            disabled={loading}
-            addRecipient={addRecipient}
-            removeRecipient={removeRecipient}
-          />
+        <RecipientsInput
+          label="To"
+          placeholder="Email Recipient Identities"
+          recipients={recipients}
+          disabled={loading}
+          addRecipient={addRecipient}
+          removeRecipient={removeRecipient}
+        />
 
-          <div className="flex flex-row mb-5 justify-end">
-            <div className="inline-flex rounded-md shadow-sm" role="group">
-              {[
-                { leyend: 'CC', onClickHandler: () => setShowCC(!showCC) },
-                { leyend: 'BCC', onClickHandler: () => setShowBCC(!showBCC) },
-              ].map(({ leyend, onClickHandler }, index) => (
-                <button
-                  onClick={onClickHandler}
-                  type="button"
-                  className={`
+        <div className="flex flex-row mb-5 justify-end">
+          <div className="inline-flex rounded-md shadow-sm" role="group">
+            {[
+              { leyend: 'CC', onClickHandler: () => setShowCC(!showCC) },
+              { leyend: 'BCC', onClickHandler: () => setShowBCC(!showBCC) },
+            ].map(({ leyend, onClickHandler }, index) => (
+              <button
+                onClick={onClickHandler}
+                type="button"
+                className={`
                   py-2 
                   px-4 
                   text-sm 
@@ -460,15 +411,15 @@ const Compose: React.FC<{}> = () => {
                   dark:focus:shadow-outline-gray
                   ${index === 0 ? 'rounded-l-lg border-r-0' : 'rounded-r-lg'}
                 `}
-                >
-                  {leyend}
-                </button>
-              ))}
-            </div>
+              >
+                {leyend}
+              </button>
+            ))}
           </div>
+        </div>
 
+        {showCC || ccRecipients.length ? (
           <RecipientsInput
-            className={showCC || ccRecipients.length ? 'block' : 'hidden'}
             label="CC"
             placeholder="Email CC Recipient Identities"
             recipients={ccRecipients}
@@ -476,7 +427,9 @@ const Compose: React.FC<{}> = () => {
             addRecipient={addCCRecipient}
             removeRecipient={removeCCRecipient}
           />
-        </div>
+        ) : (
+          ''
+        )}
 
         <label className="block text-sm">
           <span className="text-gray-700 dark:text-gray-400">Subject</span>
@@ -593,11 +546,13 @@ const Compose: React.FC<{}> = () => {
             )}
           </button>
 
-          <input type="file" ref={fileInputRef} className="hidden" onChange={addAttachment} />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="
+          {encryptionKey ? (
+            <>
+              <input type="file" ref={fileInputRef} className="hidden" onChange={addAttachment} />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="
               text-sm
               rounded 
               w-12 
@@ -609,9 +564,13 @@ const Compose: React.FC<{}> = () => {
               hover:bg-gray-100
               dark:hover:bg-gray-700
             "
-          >
-            <PaperClipIcon className="w-5 h-5 md-w-6 md-h-6" />
-          </button>
+              >
+                <PaperClipIcon className="w-5 h-5 md-w-6 md-h-6" />
+              </button>
+            </>
+          ) : (
+            ''
+          )}
         </div>
       </form>
     </div>
