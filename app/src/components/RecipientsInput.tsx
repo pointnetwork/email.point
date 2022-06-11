@@ -25,22 +25,24 @@ const RecipientsInput: React.FC<{
 
   const dispatch = useDispatch();
 
-  function validateAndAddNewRecipient(newRecipient: string) {
-    if (newRecipient === '') {
+  function validateAndAddNewRecipient(_recipient: string) {
+    const recipient = _recipient.replace(/^@/g, '');
+
+    if (recipient === '') {
       return;
     }
 
-    IdentityService.identityToOwner(newRecipient)
+    IdentityService.identityToOwner(recipient)
       .then((owner) => {
         if (owner === CONSTANTS.AddressZero) {
           dispatch(
             uiActions.showErrorNotification({
-              message: `${newRecipient} is an invalid recipient identity.`,
+              message: `${recipient} is an invalid recipient identity.`,
             })
           );
           return;
         }
-        addRecipient(newRecipient);
+        addRecipient(recipient);
       })
       .catch((error) => {
         console.error(error);
