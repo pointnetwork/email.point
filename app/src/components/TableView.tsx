@@ -119,7 +119,6 @@ const TableView: React.FC<Props> = (props) => {
     }
 
     refreshTable();
-    /*
     // COMMENTED UNTIL WE FIND A NEW IMPLEMENTATION
     let subscription: any;
     const onRecipientAddedHandler = (_payload: any) => {
@@ -141,7 +140,6 @@ const TableView: React.FC<Props> = (props) => {
         subscription.unsubscribe(onRecipientAddedHandler);
       }
     };
-    */
   }, [walletAddress]);
 
   return (

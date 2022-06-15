@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import dayjs from 'dayjs';
-import { ReplyIcon, CloudDownloadIcon } from '@heroicons/react/solid';
+import { ReplyIcon, CloudDownloadIcon, MailOpenIcon } from '@heroicons/react/solid';
 import { PaperClipIcon } from '@heroicons/react/outline';
 
 import { getEmailData } from '@services/EmailService';
@@ -186,11 +186,6 @@ const Show: React.FC<{}> = () => {
     getEmailData(emailId)
       .then((emailData) => {
         setEmailData(emailData);
-        /*
-        if (!emailData.read) {
-          EmailService.markEmailAsRead(emailData.id, true);
-        }
-        */
         setLoading(false);
       })
       .catch((error) => {
@@ -221,6 +216,35 @@ const Show: React.FC<{}> = () => {
       });
     }
   }, [emailData]);
+
+  const [markingAsRead, setMarkingAsRead] = useState<boolean>(false);
+  const markAsRead = async () => {
+    if (markingAsRead) {
+      return;
+    }
+    try {
+      setMarkingAsRead(true);
+      await EmailService.markEmailAsRead(emailData.id, true);
+      dispatch(
+        uiActions.showSuccessNotification({
+          message: 'Done.',
+        })
+      );
+      setMarkingAsRead(false);
+      setEmailData((emailData: any) => {
+        emailData.read = true;
+        return emailData;
+      });
+    } catch (error) {
+      console.error(error);
+      setMarkingAsRead(false);
+      dispatch(
+        uiActions.showErrorNotification({
+          message: 'Something went wrong.',
+        })
+      );
+    }
+  };
 
   return (
     <>
@@ -337,6 +361,11 @@ const Show: React.FC<{}> = () => {
             className="
               mb-4
               px-2
+              flex
+              flex-col
+              md:flex-row
+              align-center
+              items-center
             "
           >
             <Link
@@ -352,15 +381,42 @@ const Show: React.FC<{}> = () => {
                 justify-center
                 p-2
                 px-10
-                mt-1
-                mb-5
-                w-40
+                my-1
+                w-full
+                md:w-60
+                mx-1
               "
               to={`/compose?replyTo=${emailData.id}`}
             >
               <ReplyIcon className="w-5 h-5 mr-2" />
               <span>Reply</span>
             </Link>
+            {!emailData.read ? (
+              <button
+                className="
+                flex
+                flex-row
+                rounded
+                items-center
+                border-2
+                border-blue-600
+                bg-blue-500
+                text-white
+                justify-center
+                p-2
+                mx-1
+                w-full
+                md:w-48
+              "
+                onClick={markAsRead}
+                disabled={markingAsRead}
+              >
+                <MailOpenIcon className="w-5 h-5 mr-2" />
+                <span>{markingAsRead ? 'Marking...' : 'Mark as read'}</span>
+              </button>
+            ) : (
+              ''
+            )}
           </div>
         </div>
       )}
