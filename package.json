@@ -11,7 +11,7 @@
     "app:test:watch": "cd app && npx jest --watch",
     "app:coverage": "cd app && npx jest --coverage",
     "app:coverage:watch": "cd app && npx jest --watch --coverage",
-    "contract:test": "hardhat test ./test/PointEmail.test.ts",
+    "contract:test": "hardhat test",
     "contract:test:watch": "hardhat watch test",
     "ci:contract": "npm run contract:test",
     "ci:app": "npm run app:test && npm run app:lint && npm run app:build"
