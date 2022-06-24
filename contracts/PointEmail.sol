@@ -8,7 +8,10 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 interface IIdentity {
-    function isIdentityDeployer(string memory, address) external returns (bool);
+    function isIdentityDeployer(string memory, address)
+        external
+        view
+        returns (bool);
 }
 
 /**
@@ -465,7 +468,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         identityHandle = _identityHandle;
     }
 
-    function _authorizeUpgrade(address) internal override {
+    function _authorizeUpgrade(address) internal view override {
         require(
             IIdentity(identityContractAddress).isIdentityDeployer(
                 identityHandle,
