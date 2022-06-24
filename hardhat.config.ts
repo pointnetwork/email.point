@@ -19,7 +19,7 @@ export default {
         version: '0.8.4',
         settings: {
           optimizer: {
-            enabled: !!process.env.OPTIMIZER_ENABLED,
+            enabled: true,
             runs: 1000,
           },
         },

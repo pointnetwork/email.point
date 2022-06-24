@@ -110,11 +110,6 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         _;
     }
 
-    modifier onlySender(uint256 _emailId) {
-        require(emailIdToEmail[_emailId].from == msg.sender, "Only Sender");
-        _;
-    }
-
     modifier onlyRecipient(uint256 _emailId) {
         require(
             emailIdToEmail[_emailId].from == msg.sender ||
@@ -205,13 +200,8 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         string memory _recipientEncryptedMessageId,
         string memory _recipientEncryptedSymmetricObj,
         bool cc
-    ) private onlySender(_emailId) validEmail(_emailId) {
+    ) private {
         Email storage email = emailIdToEmail[_emailId];
-
-        require(
-            email.createdAt + 5 minutes >= block.timestamp,
-            "More recipients not allowed"
-        );
 
         require(
             cc || !_isInAddressArray(_recipient, email.to),
@@ -515,7 +505,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         uint256 counter = 0;
 
         for (uint256 i = 0; i < maxEmailsQty; i++) {
-            Email memory email = _emails[i];
+            Email memory email = emailIdToEmail[_emails[i].id];
             EmailWithUserMetaData
                 memory emailWithUserMetaData = _getEmailWithMetadata(
                     email,
