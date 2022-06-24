@@ -14,13 +14,17 @@ import path from 'path';
  */
 export default {
   solidity: {
-    version: '0.8.4',
-    settings: {
-      optimizer: {
-        enabled: !!process.env.OPTIMIZER_ENABLED,
-        runs: 1000,
+    compilers: [
+      {
+        version: '0.8.4',
+        settings: {
+          optimizer: {
+            enabled: !!process.env.OPTIMIZER_ENABLED,
+            runs: 1000,
+          },
+        },
       },
-    },
+    ],
   },
 
   networks: {

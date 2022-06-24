@@ -1,3 +1,5 @@
+declare module 'crypto-aes-gcm';
+
 type WindowWithPoint = Window & {
   point: any;
 };
@@ -42,6 +44,7 @@ type Email = {
   deleted?: boolean;
   read?: boolean;
   attachments?: Array;
+  encryptionKey?: string;
 };
 
 type Event = {
@@ -65,3 +68,18 @@ type EventSubscription = {
   unsubscribe: Function;
   subscribe: Function;
 };
+
+type FileChunk = {
+  id: string;
+  position: number;
+};
+
+type StoredFile = {
+  name: string;
+  size: number;
+  type: string;
+  lastModified: number;
+  chunks: FileChunk[];
+};
+
+type EncryptedAttachment = StoredFile;

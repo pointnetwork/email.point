@@ -7,6 +7,13 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
+interface IIdentity {
+    function isIdentityDeployer(string memory, address)
+        external
+        view
+        returns (bool);
+}
+
 /**
  * @dev Implementation of email.point's smart contract.
  */
@@ -51,6 +58,10 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         public emailUserMetadata;
 
     mapping(uint256 => address[]) private emailCC;
+
+    // upgradeability variables
+    address private identityContractAddress;
+    string private identityHandle;
 
     event EmailCreated(uint256 id, address indexed from, uint256 timestamp);
 
@@ -430,12 +441,25 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         return result;
     }
 
-    function initialize() public initializer onlyProxy {
+    function initialize(
+        address _identityContractAddress,
+        string calldata _identityHandle
+    ) public initializer onlyProxy {
         __Ownable_init();
         __UUPSUpgradeable_init();
+        identityContractAddress = _identityContractAddress;
+        identityHandle = _identityHandle;
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    function _authorizeUpgrade(address) internal view override {
+        require(
+            IIdentity(identityContractAddress).isIdentityDeployer(
+                identityHandle,
+                msg.sender
+            ),
+            "Not a deployer"
+        );
+    }
 
     function _isInAddressArray(address _address, address[] memory _array)
         private
