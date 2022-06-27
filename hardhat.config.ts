@@ -11,6 +11,8 @@ import path from 'path';
 import * as ethers from 'ethers';
 import fs from 'fs';
 import os from 'os';
+import { hdkey } from 'ethereumjs-wallet';
+import { mnemonicToSeedSync } from 'bip39';
 
 import './tasks/email-migrate';
 
@@ -38,11 +40,14 @@ try {
       fs.readFileSync(`${os.homedir()}/.point/keystore/key.json`).toString()
     );
 
-    const wallet = ethers.Wallet.fromMnemonic(keystore.phrase);
+    const wallet = hdkey.fromMasterSeed(mnemonicToSeedSync(keystore.phrase)).getWallet();
+    const privateKey = wallet.getPrivateKey().toString('hex');
+
+    // const wallet = ethers.Wallet.fromMnemonic(keystore.phrase);
 
     networks.ynet = {
       url: 'http://ynet.point.space:44444',
-      accounts: [wallet.privateKey],
+      accounts: [privateKey],
     };
   }
 } catch (err) {}
