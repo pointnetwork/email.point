@@ -64,11 +64,9 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     string private identityHandle;
 
     // to avoid collision meanwhile migration is running
-    uint256 public constant INITIAL_EMAIL_ID = 200;
+    uint256 public constant INITIAL_EMAIL_ID = 300;
     address public constant MIGRATOR_ADDRESS =
         0xb22bC58330d624EB2c6863FB1f562E529139C628;
-    address public constant MIGRATOR_ADDRESS_2 =
-        0x61771B01573810bD0593EDEABa905B4e83cF3E9e;
 
     event EmailCreated(uint256 id, address indexed from, uint256 timestamp);
 
@@ -145,10 +143,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         address[] calldata _users,
         EmailUserMetaData[] calldata _metadata
     ) external {
-        require(
-            msg.sender == MIGRATOR_ADDRESS || msg.sender == MIGRATOR_ADDRESS_2,
-            "access denied"
-        );
+        require(msg.sender == MIGRATOR_ADDRESS, "access denied");
         require(emailIdToEmail[_id].from == address(0), "email already exists");
 
         Email memory _email = Email(_id, _from, _to, _createdAt);
