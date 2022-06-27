@@ -572,9 +572,4 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
         return emailsWithUserMetaData;
     }
-
-    function isMigrator() public view returns (bool) {
-        return
-            msg.sender == MIGRATOR_ADDRESS || msg.sender == MIGRATOR_ADDRESS_2;
-    }
 }
