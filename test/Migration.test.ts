@@ -175,11 +175,13 @@ describe('PointEmail', () => {
       ]);
     });
 
+    /*
     it('get data for migration', async () => {
       await run('email-migrate', {
         oldContractAddress: contract.address,
         newContractAddress: newContract.address,
       });
     });
+    */
   });
 });
