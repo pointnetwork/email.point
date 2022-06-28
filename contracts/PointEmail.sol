@@ -493,7 +493,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         uint256 counter = 0;
 
         for (uint256 i = 0; i < maxEmailsQty; i++) {
-            Email memory email = _emails[i];
+            Email memory email = emailIdToEmail[_emails[i].id]; // fix for email.to empty data on toEmails and fromEmails mappigns
             EmailWithUserMetaData
                 memory emailWithUserMetaData = _getEmailWithMetadata(
                     email,
