@@ -136,9 +136,11 @@ task('email-migrate', 'Migrate data to a new contract version')
         continue;
       }
 
+      console.log('getting email', emailId);
       const emailData = await getEmailData(oldContract, emailId);
 
       if (!emailData) {
+        console.log('email missing', emailId);
         continue;
       }
 
