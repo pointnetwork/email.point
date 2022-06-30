@@ -63,6 +63,9 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     address private identityContractAddress;
     string private identityHandle;
 
+    // to avoid collision meanwhile migration is running
+    uint256 public constant INITIAL_EMAIL_ID = 300;
+
     event EmailCreated(uint256 id, address indexed from, uint256 timestamp);
 
     event RecipientAdded(
@@ -93,6 +96,13 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         uint256 timestamp
     );
 
+    event EmailMigrated(uint256 indexed id, uint256 timestamp);
+
+    modifier validEmail(uint256 _emailId) {
+        require(emailIdToEmail[_emailId].id == _emailId, "Invalid Email");
+        _;
+    }
+
     modifier onlySenderOrRecipient(uint256 _emailId) {
         require(
             emailIdToEmail[_emailId].from == msg.sender ||
@@ -103,6 +113,64 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             "Permission Denied"
         );
         _;
+    }
+
+    modifier onlySender(uint256 _emailId) {
+        require(emailIdToEmail[_emailId].from == msg.sender, "Only Sender");
+        _;
+    }
+
+    modifier onlyRecipient(uint256 _emailId) {
+        require(
+            emailIdToEmail[_emailId].from == msg.sender ||
+                bytes(
+                    emailUserMetadata[_emailId][msg.sender].encryptedMessageId
+                ).length !=
+                0,
+            "Only Recipient"
+        );
+        _;
+    }
+
+    function addEmailFromMigration(
+        uint256 _id,
+        address _from,
+        address[] calldata _to,
+        address[] calldata _cc,
+        uint256 _createdAt,
+        address[] calldata _users,
+        EmailUserMetaData[] calldata _metadata
+    ) external {
+        require(
+            IIdentity(identityContractAddress).isIdentityDeployer(
+                identityHandle,
+                msg.sender
+            ),
+            "Not a deployer"
+        );
+        require(emailIdToEmail[_id].from == address(0), "email already exists");
+
+        Email memory _email = Email(_id, _from, _to, _createdAt);
+
+        emailIdToEmail[_id] = _email;
+
+        emailCC[_id] = _cc;
+
+        fromEmails[_from].push(_email);
+
+        for (uint256 i = 0; i < _to.length; i++) {
+            toEmails[_to[i]].push(_email);
+        }
+
+        for (uint256 i = 0; i < _cc.length; i++) {
+            toEmails[_cc[i]].push(_email);
+        }
+
+        for (uint256 i = 0; i < _users.length; i++) {
+            emailUserMetadata[_id][_users[i]] = _metadata[i];
+        }
+
+        emit EmailMigrated(_id, block.timestamp);
     }
 
     /**
@@ -129,7 +197,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
         // New email id
         _emailIds.increment();
-        uint256 newEmailId = _emailIds.current();
+        uint256 newEmailId = INITIAL_EMAIL_ID + _emailIds.current();
 
         address[] memory emptyToArray;
 

@@ -8,6 +8,49 @@ import 'solidity-coverage';
 import 'hardhat-watcher';
 import '@openzeppelin/hardhat-upgrades';
 import path from 'path';
+import * as ethers from 'ethers';
+import fs from 'fs';
+import os from 'os';
+import { hdkey } from 'ethereumjs-wallet';
+import { mnemonicToSeedSync } from 'bip39';
+
+import './tasks/email-migrate';
+
+const keystorePath = `${os.homedir()}/.point/keystore/key.json`;
+
+const networks: Record<string, any> = {
+  hardhat: {
+    initialBaseFeePerGas: 0, // workaround from https://github.com/sc-forks/solidity-coverage/issues/652#issuecomment-896330136 . Remove when that issue is closed.
+    forking: {
+      enabled: !!process.env.USE_FORK,
+      url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
+      blockNumber: 13698020,
+    },
+  },
+
+  rinkeby: {
+    url: process.env.RINKEBY_URL || '',
+    accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+  },
+};
+
+try {
+  if (fs.existsSync(keystorePath)) {
+    const keystore: any = JSON.parse(
+      fs.readFileSync(`${os.homedir()}/.point/keystore/key.json`).toString()
+    );
+
+    const wallet = hdkey.fromMasterSeed(mnemonicToSeedSync(keystore.phrase)).getWallet();
+    const privateKey = wallet.getPrivateKey().toString('hex');
+
+    // const wallet = ethers.Wallet.fromMnemonic(keystore.phrase);
+
+    networks.ynet = {
+      url: 'http://ynet.point.space:44444',
+      accounts: [privateKey],
+    };
+  }
+} catch (err) {}
 
 /**
  * @type import('hardhat/config').HardhatUserConfig
@@ -20,28 +63,14 @@ export default {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 1000,
+            runs: 10000,
           },
         },
       },
     ],
   },
 
-  networks: {
-    hardhat: {
-      initialBaseFeePerGas: 0, // workaround from https://github.com/sc-forks/solidity-coverage/issues/652#issuecomment-896330136 . Remove when that issue is closed.
-      forking: {
-        enabled: !!process.env.USE_FORK,
-        url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`,
-        blockNumber: 13698020,
-      },
-    },
-
-    rinkeby: {
-      url: process.env.RINKEBY_URL || '',
-      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-    },
-  },
+  networks,
 
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,

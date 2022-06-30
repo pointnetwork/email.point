@@ -171,7 +171,7 @@ describe('PointEmail', () => {
       const emails = await contract.connect(user2).getDeletedEmails();
       expect(emails.length).to.equal(1);
       const [email] = emails;
-      expect(email.id.toString()).to.equal('1');
+      expect(email.id.toString()).to.equal(emailId);
       expect(email.encryptedMessageId).to.equal(RECIPIENTS[0].ENCRYPTED_ID);
       expect(email.encryptedSymmetricObj).to.equal(RECIPIENTS[0].ENCRYPTED_CONTENT);
     });
@@ -191,7 +191,7 @@ describe('PointEmail', () => {
         const emails = await contract.connect(user2).getAllEmailsByToAddress(user2.address);
         expect(emails.length).to.equal(1);
         const [email] = emails;
-        expect(email.id.toString()).to.equal('1');
+        expect(email.id.toString()).to.equal(emailId.toString());
         expect(email.encryptedMessageId).to.equal(RECIPIENTS[0].ENCRYPTED_ID);
         expect(email.encryptedSymmetricObj).to.equal(RECIPIENTS[0].ENCRYPTED_CONTENT);
       });
