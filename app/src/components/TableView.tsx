@@ -122,7 +122,7 @@ const TableView: React.FC<Props> = (props) => {
 
     let subscription: any;
     const onRecipientAddedHandler = (_payload: any) => {
-      if (_payload.returnValues.recipient === walletAddress) {
+      if (_payload.returnValues.recipient.toLowerCase() === walletAddress.toLowerCase()) {
         refreshTable();
       }
     };
