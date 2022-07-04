@@ -58,40 +58,6 @@ async function encryptAndSaveData(
   };
 }
 
-type EncryptedAttachment = {
-  storedEncryptedMessageId: string;
-  encryptedSymmetricObjJSON: string;
-  name: string;
-  size: number;
-  type: string;
-  lastModified: number;
-};
-
-async function getEncryptedAttachments(
-  attachments: File[],
-  publickKey: string
-): Promise<EncryptedAttachment[]> {
-  const encryptedAttachmentsData = await Promise.all(
-    attachments.map(async (attachment) => {
-      const attachmentContent = await getFileContent(attachment);
-      // encrypt file content and save it
-      const encryptedFileContent = await encryptAndSaveData(
-        publickKey,
-        attachmentContent as string
-      );
-      const attachmentToSave = {
-        name: attachment.name,
-        size: attachment.size,
-        type: attachment.type,
-        lastModified: attachment.lastModified,
-        ...encryptedFileContent,
-      };
-      return attachmentToSave;
-    })
-  );
-  return encryptedAttachmentsData;
-}
-
 function addRecipientFactory(
   setRecipientsFunction: (value: React.SetStateAction<string[]>) => void
 ) {
@@ -240,7 +206,7 @@ const Compose: React.FC<{}> = () => {
       });
   }
 
-  async function getRecipientEncryptedEmailData(recipient: Identity, attachments: File[] = []) {
+  async function getRecipientEncryptedEmailData(recipient: Identity, emailData: string) {
     const [recipientAddress, recipientPublicKey] = await Promise.all([
       IdentityService.identityToOwner(recipient),
       IdentityService.publicKeyByIdentity(recipient),
@@ -250,24 +216,20 @@ const Compose: React.FC<{}> = () => {
       throw new Error('Invalid identity');
     }
 
-    const encryptedAttachments: EncryptedAttachment[] = await getEncryptedAttachments(
-      attachments,
-      recipientPublicKey
-    );
-
-    const encryptedData = await encryptAndSaveData(
-      recipientPublicKey,
-      JSON.stringify({
-        subject,
-        message,
-        attachments: encryptedAttachments,
-      })
-    );
+    const encryptedData = await encryptAndSaveData(publicKey!, emailData);
 
     return {
       address: recipientAddress,
       ...encryptedData,
     };
+  }
+
+  async function saveAttachments(): Promise<EncryptedAttachment[]> {
+    let storedAttachments: EncryptedAttachment[] = [];
+    for (let attachment of attachments) {
+      storedAttachments.push(await encryptAndStoreFile(attachment, encryptionKey));
+    }
+    return storedAttachments;
   }
 
   async function send() {
@@ -280,20 +242,22 @@ const Compose: React.FC<{}> = () => {
       return;
     }
 
-    // Get sender data
-    const fromEncryptedAttachments: EncryptedAttachment[] = await getEncryptedAttachments(
-      attachments,
-      publicKey!
-    );
+    const storedAttachments: EncryptedAttachment[] = await saveAttachments();
+    const email: string = JSON.stringify({
+      subject,
+      message,
+      attachments: storedAttachments,
+      encryptionKey,
+    });
 
-    const fromEncryptedData = await encryptAndSaveData(
-      publicKey!,
-      JSON.stringify({
-        subject,
-        message,
-        attachments: fromEncryptedAttachments,
-      })
-    );
+    const fromEncryptedData = await encryptAndSaveData(publicKey!, email);
+
+    console.log({
+      subject,
+      message,
+      attachments: storedAttachments,
+      encryptionKey,
+    });
 
     const addresses: Address[] = [];
     const messageIds: string[] = [];
@@ -302,7 +266,7 @@ const Compose: React.FC<{}> = () => {
 
     let recipientData;
     for (let recipient of recipients) {
-      recipientData = await getRecipientEncryptedEmailData(recipient, attachments);
+      recipientData = await getRecipientEncryptedEmailData(recipient, email);
       addresses.push(recipientData.address);
       messageIds.push(recipientData.storedEncryptedMessageId);
       symObjs.push(recipientData.encryptedSymmetricObjJSON);
@@ -311,7 +275,7 @@ const Compose: React.FC<{}> = () => {
 
     let ccRecipientData;
     for (let ccRecipient of ccRecipients) {
-      ccRecipientData = await getRecipientEncryptedEmailData(ccRecipient, attachments);
+      ccRecipientData = await getRecipientEncryptedEmailData(ccRecipient, email);
       addresses.push(ccRecipientData.address);
       messageIds.push(ccRecipientData.storedEncryptedMessageId);
       symObjs.push(ccRecipientData.encryptedSymmetricObjJSON);
