@@ -216,7 +216,7 @@ const Compose: React.FC<{}> = () => {
       throw new Error('Invalid identity');
     }
 
-    const encryptedData = await encryptAndSaveData(publicKey!, emailData);
+    const encryptedData = await encryptAndSaveData(recipientPublicKey, emailData);
 
     return {
       address: recipientAddress,
