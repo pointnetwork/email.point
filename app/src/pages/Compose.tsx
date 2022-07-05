@@ -196,6 +196,7 @@ const Compose: React.FC<{}> = () => {
         setLoading(false);
       })
       .catch((error) => {
+        console.error(error);
         dispatch(
           uiActions.showErrorNotification({
             message: 'Something went wrong, try again later.',
@@ -205,34 +206,22 @@ const Compose: React.FC<{}> = () => {
       });
   }
 
-  async function addRecipientToEmail(
-    emailId: number,
-    recipient: Identity,
-    email: string,
-    cc: boolean = false
-  ) {
-    const [address, publicKey] = await Promise.all([
+  async function getRecipientEncryptedEmailData(recipient: Identity, emailData: string) {
+    const [recipientAddress, recipientPublicKey] = await Promise.all([
       IdentityService.identityToOwner(recipient),
       IdentityService.publicKeyByIdentity(recipient),
     ]);
 
-    if (address === CONSTANTS.AddressZero) {
+    if (recipientAddress === CONSTANTS.AddressZero) {
       throw new Error('Invalid identity');
     }
 
-    const encryptedData = await encryptAndSaveData(publicKey, email);
+    const encryptedData = await encryptAndSaveData(recipientPublicKey, emailData);
 
-    await ContractService.sendContract({
-      contract: 'PointEmail',
-      method: 'addRecipientToEmail',
-      params: [
-        emailId,
-        address,
-        encryptedData.storedEncryptedMessageId,
-        encryptedData.encryptedSymmetricObjJSON,
-        cc,
-      ],
-    });
+    return {
+      address: recipientAddress,
+      ...encryptedData,
+    };
   }
 
   async function saveAttachments(): Promise<EncryptedAttachment[]> {
@@ -261,6 +250,8 @@ const Compose: React.FC<{}> = () => {
       encryptionKey,
     });
 
+    const fromEncryptedData = await encryptAndSaveData(publicKey!, email);
+
     console.log({
       subject,
       message,
@@ -268,48 +259,42 @@ const Compose: React.FC<{}> = () => {
       encryptionKey,
     });
 
-    const fromEncryptedData = await encryptAndSaveData(publicKey!, email);
+    const addresses: Address[] = [];
+    const messageIds: string[] = [];
+    const symObjs: string[] = [];
+    const isCCRecipient: boolean[] = [];
+
+    let recipientData;
+    for (let recipient of recipients) {
+      recipientData = await getRecipientEncryptedEmailData(recipient, email);
+      addresses.push(recipientData.address);
+      messageIds.push(recipientData.storedEncryptedMessageId);
+      symObjs.push(recipientData.encryptedSymmetricObjJSON);
+      isCCRecipient.push(false);
+    }
+
+    let ccRecipientData;
+    for (let ccRecipient of ccRecipients) {
+      ccRecipientData = await getRecipientEncryptedEmailData(ccRecipient, email);
+      addresses.push(ccRecipientData.address);
+      messageIds.push(ccRecipientData.storedEncryptedMessageId);
+      symObjs.push(ccRecipientData.encryptedSymmetricObjJSON);
+      isCCRecipient.push(true);
+    }
 
     // Create the email
-    const { events } = await ContractService.sendContract({
+    await ContractService.sendContract({
       contract: 'PointEmail',
       method: 'send',
       params: [
         fromEncryptedData.storedEncryptedMessageId,
         fromEncryptedData.encryptedSymmetricObjJSON,
+        addresses,
+        messageIds,
+        symObjs,
+        isCCRecipient,
       ],
     });
-
-    const newEmailId = (events['EmailCreated'] as any).returnValues.id;
-
-    // Add recipients
-    const rejectedRecipients: string[] = [];
-
-    for (let recipient of recipients) {
-      try {
-        await addRecipientToEmail(newEmailId, recipient, email, false);
-      } catch (error) {
-        rejectedRecipients.push(recipient);
-      }
-    }
-
-    for (let ccRecipient of ccRecipients) {
-      try {
-        await addRecipientToEmail(newEmailId, ccRecipient, email, true);
-      } catch (error) {
-        rejectedRecipients.push(ccRecipient);
-      }
-    }
-
-    if (rejectedRecipients.length) {
-      dispatch(
-        uiActions.showErrorNotification({
-          message: `${rejectedRecipients.join(', ')} recipients have failed.`,
-        })
-      );
-      cleanForm();
-      return;
-    }
 
     dispatch(
       uiActions.showSuccessNotification({

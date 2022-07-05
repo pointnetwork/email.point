@@ -181,35 +181,57 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
      */
     function send(
         string calldata _fromEncryptedMessageId,
-        string calldata _fromEncryptedSymmetricObj
+        string calldata _fromEncryptedSymmetricObj,
+        address[] memory _recipients,
+        string[] memory _recipientEncryptedMessageIds,
+        string[] memory _recipientEncryptedSymmetricObjs,
+        bool[] memory _recipientCCs
     ) external {
+        uint256 recipientsQty = _recipients.length;
+        require(
+            recipientsQty == _recipientEncryptedMessageIds.length &&
+                recipientsQty == _recipientEncryptedSymmetricObjs.length &&
+                recipientsQty == _recipientCCs.length,
+            "inconsistent recipients"
+        );
+
         // New email id
         _emailIds.increment();
         uint256 newEmailId = INITIAL_EMAIL_ID + _emailIds.current();
 
-        address[] memory _emptyToArray;
+        address[] memory emptyToArray;
 
         // New email object
-        Email memory _email = Email(
+        Email memory email = Email(
             newEmailId,
             msg.sender,
-            _emptyToArray,
+            emptyToArray,
             block.timestamp
         );
 
-        emailIdToEmail[newEmailId] = _email;
+        emailIdToEmail[newEmailId] = email;
 
         // sender info
-        fromEmails[msg.sender].push(_email);
+        fromEmails[msg.sender].push(email);
 
-        EmailUserMetaData memory _fromMetadata = EmailUserMetaData(
+        EmailUserMetaData memory fromMetadata = EmailUserMetaData(
             _fromEncryptedMessageId,
             _fromEncryptedSymmetricObj,
             false,
             false,
             true // sender has read the email
         );
-        emailUserMetadata[newEmailId][msg.sender] = _fromMetadata;
+        emailUserMetadata[newEmailId][msg.sender] = fromMetadata;
+
+        for (uint256 i = 0; i < recipientsQty; i++) {
+            addRecipientToEmail(
+                newEmailId,
+                _recipients[i],
+                _recipientEncryptedMessageIds[i],
+                _recipientEncryptedSymmetricObjs[i],
+                _recipientCCs[i]
+            );
+        }
 
         emit EmailCreated(newEmailId, msg.sender, block.timestamp);
     }
@@ -226,16 +248,11 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     function addRecipientToEmail(
         uint256 _emailId,
         address _recipient,
-        string calldata _recipientEncryptedMessageId,
-        string calldata _recipientEncryptedSymmetricObj,
+        string memory _recipientEncryptedMessageId,
+        string memory _recipientEncryptedSymmetricObj,
         bool cc
-    ) external onlySender(_emailId) validEmail(_emailId) {
+    ) private {
         Email storage email = emailIdToEmail[_emailId];
-
-        require(
-            email.createdAt + 5 minutes >= block.timestamp,
-            "More recipients not allowed"
-        );
 
         require(
             cc || !_isInAddressArray(_recipient, email.to),
@@ -260,7 +277,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         ).length != 0;
 
         if (!metadaAlreadyAdded) {
-            EmailUserMetaData memory _toMetadata = EmailUserMetaData(
+            EmailUserMetaData memory toMetadata = EmailUserMetaData(
                 _recipientEncryptedMessageId,
                 _recipientEncryptedSymmetricObj,
                 false,
@@ -268,7 +285,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
                 false
             );
 
-            emailUserMetadata[_emailId][_recipient] = _toMetadata;
+            emailUserMetadata[_emailId][_recipient] = toMetadata;
         }
 
         emit RecipientAdded(_emailId, _recipient, cc, block.timestamp);
@@ -310,24 +327,24 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         view
         returns (EmailWithUserMetaData memory)
     {
-        Email memory _email = emailIdToEmail[_emailId];
+        Email memory email = emailIdToEmail[_emailId];
         // new version
-        if (_email.from != address(0)) {
-            return _getEmailWithMetadata(_email, msg.sender);
+        if (email.from != address(0)) {
+            return _getEmailWithMetadata(email, msg.sender);
         }
 
         // old version compatibylity
         for (uint256 i = 0; i < toEmails[msg.sender].length; i++) {
-            _email = toEmails[msg.sender][i];
-            if (_email.id == _emailId) {
-                return _getEmailWithMetadata(_email, msg.sender);
+            email = toEmails[msg.sender][i];
+            if (email.id == _emailId) {
+                return _getEmailWithMetadata(email, msg.sender);
             }
         }
 
         for (uint256 i = 0; i < fromEmails[msg.sender].length; i++) {
-            _email = fromEmails[msg.sender][i];
-            if (_email.id == _emailId) {
-                return _getEmailWithMetadata(_email, msg.sender);
+            email = fromEmails[msg.sender][i];
+            if (email.id == _emailId) {
+                return _getEmailWithMetadata(email, msg.sender);
             }
         }
 
@@ -377,7 +394,7 @@ contract PointEmail is Initializable, UUPSUpgradeable, OwnableUpgradeable {
      */
     function markAsRead(uint256 _emailId, bool _read)
         external
-        onlyRecipient(_emailId)
+        onlySenderOrRecipient(_emailId)
     {
         emailUserMetadata[_emailId][msg.sender].read = _read;
 
