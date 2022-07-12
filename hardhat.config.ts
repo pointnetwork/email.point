@@ -8,7 +8,6 @@ import 'solidity-coverage';
 import 'hardhat-watcher';
 import '@openzeppelin/hardhat-upgrades';
 import path from 'path';
-import * as ethers from 'ethers';
 import fs from 'fs';
 import os from 'os';
 import { hdkey } from 'ethereumjs-wallet';
