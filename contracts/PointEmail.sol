@@ -7,12 +7,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-interface IIdentity {
-    function isIdentityDeployer(string memory, address)
-        external
-        view
-        returns (bool);
-}
+import "point-contract-manager/contracts/IIdentity.sol";
 
 /**
  * @dev Implementation of email.point's smart contract.

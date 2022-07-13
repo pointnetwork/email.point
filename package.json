@@ -25,6 +25,7 @@
     "hardhat": "^2.6.4",
     "hardhat-watcher": "^2.1.1",
     "ts-node": "^10.2.1",
+    "point-contract-manager": "github:pointnetwork/point-contracts#v0.1.0",
     "typescript": "^4.4.3"
   },
   "devDependencies": {
