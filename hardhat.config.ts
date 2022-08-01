@@ -14,6 +14,8 @@ import { hdkey } from 'ethereumjs-wallet';
 import { mnemonicToSeedSync } from 'bip39';
 
 import './tasks/email-migrate';
+import './tasks/download-emails';
+import './tasks/upload-emails';
 
 const keystorePath = `${os.homedir()}/.point/keystore/key.json`;
 

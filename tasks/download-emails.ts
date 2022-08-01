@@ -1,5 +1,7 @@
 import { BigNumber, Contract, constants } from 'ethers';
 import { task } from 'hardhat/config';
+import { promises as fs } from 'fs';
+import path from 'path';
 import { EmailData, EmailWithUserMetadata, Metadata } from './types';
 
 async function getLastEmailId(contract: Contract) {
@@ -69,61 +71,46 @@ async function getEmailData(contract: Contract, emailId: number): Promise<EmailD
   };
 }
 
-task('email-migrate', 'Migrate data to a new contract version')
-  .addOptionalParam('oldContractAddress', 'Old contract address')
-  .addOptionalParam('newContractAddress', 'New contract address')
+task('download-emails', 'Migrate data to a new contract version')
+  .addOptionalParam('contractAddress', 'contract')
   .setAction(async (args, hre) => {
     const { ethers } = hre;
     const { utils } = ethers;
-    const { oldContractAddress, newContractAddress } = args;
+    const { contractAddress } = args;
 
-    if (!utils.isAddress(oldContractAddress)) {
+    if (!utils.isAddress(contractAddress)) {
       throw new Error('Invalid old contract address');
     }
 
-    if (!utils.isAddress(newContractAddress)) {
-      throw new Error('Invalid new contract address');
-    }
-
-    // get last sent email id
-    // get all the migrated email ids
-    // one by one get the remainig emails and upload it to new contract
-
     const contractName = 'PointEmail';
 
-    const oldContract = await ethers.getContractAt(contractName, oldContractAddress);
-    const newContract = await ethers.getContractAt(contractName, newContractAddress);
+    const contract = await ethers.getContractAt(contractName, contractAddress);
+    const lastEmailId = await getLastEmailId(contract);
 
-    const lastEmailId = await getLastEmailId(oldContract);
-    const migratedEmailIds = await getMigratedEmailIds(newContract);
+    const emailsFolder = path.resolve(__dirname, '..', 'cache', 'emails');
 
-    console.log(lastEmailId, migratedEmailIds);
+    try {
+      await fs.mkdir(emailsFolder);
+    } catch (error) {}
 
     for (let emailId = 1; emailId <= lastEmailId; emailId++) {
-      // email already migrated
-      if (migratedEmailIds.includes(emailId)) {
+      const emailPath = path.resolve(emailsFolder, `${emailId}.json`);
+      try {
+        await fs.open(emailPath, 'r');
+        console.log(emailId, 'already saved');
         continue;
-      }
+      } catch (error) {}
 
-      console.log('getting email', emailId);
-      const emailData = await getEmailData(oldContract, emailId);
+      const emailData = await getEmailData(contract, emailId);
 
       if (!emailData) {
         console.log('email missing', emailId);
         continue;
       }
 
-      console.log('migrating', emailId);
+      console.log('saving', emailId);
 
-      await newContract.addEmailFromMigration(
-        emailData.id,
-        emailData.from,
-        emailData.to,
-        emailData.cc,
-        emailData.createdAt,
-        emailData.users,
-        emailData.metadata
-      );
+      fs.writeFile(emailPath, JSON.stringify(emailData));
 
       console.log('done');
     }
